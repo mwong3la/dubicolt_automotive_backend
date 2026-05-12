@@ -41,6 +41,7 @@ const technicianController = __importStar(require("../controllers/technician.con
 const adminSubscriptionController = __importStar(require("../controllers/adminSubscription.controller"));
 const adminPaymentController = __importStar(require("../controllers/adminPayment.controller"));
 const adminPlanController = __importStar(require("../controllers/adminPlan.controller"));
+const contactMessageController = __importStar(require("../controllers/contactMessage.controller"));
 const auth_middleware_1 = __importDefault(require("../middlewares/auth.middleware"));
 const auth_middleware_2 = require("../middlewares/auth.middleware");
 const rbac_types_1 = require("../types/rbac.types");
@@ -59,4 +60,6 @@ router.patch('/subscriptions/:id/status', adminSubscriptionController.updateSubs
 // Payments: list all, create manual
 router.get('/payments', adminPaymentController.listPayments);
 router.post('/payments', adminPaymentController.createManualPayment);
+// Website contact form submissions
+router.get('/contact-messages', contactMessageController.listContactMessages);
 exports.default = router;

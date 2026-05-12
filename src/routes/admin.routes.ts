@@ -3,6 +3,7 @@ import * as technicianController from '../controllers/technician.controller';
 import * as adminSubscriptionController from '../controllers/adminSubscription.controller';
 import * as adminPaymentController from '../controllers/adminPayment.controller';
 import * as adminPlanController from '../controllers/adminPlan.controller';
+import * as contactMessageController from '../controllers/contactMessage.controller';
 import isAuthenticated from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/auth.middleware';
 import { UserRole } from '../types/rbac.types';
@@ -27,5 +28,8 @@ router.patch('/subscriptions/:id/status', adminSubscriptionController.updateSubs
 // Payments: list all, create manual
 router.get('/payments', adminPaymentController.listPayments);
 router.post('/payments', adminPaymentController.createManualPayment);
+
+// Website contact form submissions
+router.get('/contact-messages', contactMessageController.listContactMessages);
 
 export default router;

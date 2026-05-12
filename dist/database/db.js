@@ -16,6 +16,7 @@ const DiagnosticReport_1 = require("./models/DiagnosticReport");
 const SubscriptionPlan_1 = require("./models/SubscriptionPlan");
 const Subscription_1 = require("./models/Subscription");
 const Payment_1 = require("./models/Payment");
+const ContactMessage_1 = require("./models/ContactMessage");
 const env = process.env.NODE_ENV || 'development';
 const envConfig = config_1.default[env];
 const db = new sequelize_typescript_1.Sequelize({
@@ -28,6 +29,7 @@ const db = new sequelize_typescript_1.Sequelize({
         SubscriptionPlan_1.SubscriptionPlan,
         Subscription_1.Subscription,
         Payment_1.Payment,
+        ContactMessage_1.ContactMessage,
     ],
     logging: false,
 });

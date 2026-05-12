@@ -9,6 +9,7 @@ import { DiagnosticReport } from './models/DiagnosticReport';
 import { SubscriptionPlan } from './models/SubscriptionPlan';
 import { Subscription } from './models/Subscription';
 import { Payment } from './models/Payment';
+import { ContactMessage } from './models/ContactMessage';
 
 const env = process.env.NODE_ENV || 'development';
 const envConfig = config[env as keyof typeof config];
@@ -23,6 +24,7 @@ const db = new Sequelize({
     SubscriptionPlan,
     Subscription,
     Payment,
+    ContactMessage,
   ],
   logging: false,
 });
