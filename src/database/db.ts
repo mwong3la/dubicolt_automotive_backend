@@ -1,164 +1,73 @@
-import { Op } from 'sequelize';
-import { Sequelize } from 'sequelize-typescript';
-import bcrypt from 'bcrypt';
+import { Sequelize, SequelizeOptions } from 'sequelize-typescript';
 import config from './config/config';
 import { User } from './models/User';
-import { Vehicle } from './models/Vehicle';
-import { Inspection } from './models/Inspection';
-import { DiagnosticReport } from './models/DiagnosticReport';
-import { SubscriptionPlan } from './models/SubscriptionPlan';
-import { Subscription } from './models/Subscription';
-import { Payment } from './models/Payment';
-import { ContactMessage } from './models/ContactMessage';
+import { Category } from './models/Category';
+import { Product } from './models/Product';
+import { CartItem } from './models/CartItem';
+import { CheckoutSession } from './models/CheckoutSession';
+import { SourcingRequest } from './models/SourcingRequest';
+import { SourcingQuote } from './models/SourcingQuote';
+import { SourcingAttachment } from './models/SourcingAttachment';
+import { Shipment } from './models/Shipment';
+import { MarketplaceOrder } from './models/MarketplaceOrder';
+import { AdminSourcingOrder } from './models/AdminSourcingOrder';
+import { seedDatabaseIfEmpty } from './seed-runner';
 
 const env = process.env.NODE_ENV || 'development';
 const envConfig = config[env as keyof typeof config];
 
-const db = new Sequelize({
-  ...envConfig,
-  models: [
-    User,
-    Vehicle,
-    Inspection,
-    DiagnosticReport,
-    SubscriptionPlan,
-    Subscription,
-    Payment,
-    ContactMessage,
-  ],
-  logging: false,
-});
-
-// Plans as per document: name, description, pricing, and listed features only (no inferred limits).
-const DOCUMENT_PLANS = [
-  {
-    slug: 'standard',
-    name: 'Personal Vehicle Health Plan – Standard',
-    description: 'For private vehicle owners who want preventive monitoring.',
-    priceMonthly: 1400,
-    priceYearly: 14000,
-    features: [
-      'One preventive diagnostic every 6 months',
-      '10% discount on additional on-demand visits',
-      'Priority booking',
-      'Digital service history access',
-    ],
-  },
-  {
-    slug: 'plus',
-    name: 'Personal Vehicle Health Plan – Plus',
-    description: 'Enhanced preventive monitoring with second-opinion support.',
-    priceMonthly: 2000,
-    priceYearly: 20000,
-    features: [
-      'One preventive diagnostic every 4 months',
-      '15% discount on additional visits',
-      'Second-opinion support included',
-      'Priority scheduling',
-      'Digital service history',
-    ],
-  },
-  {
-    slug: 'premium',
-    name: 'Personal Vehicle Health Plan – Premium',
-    description: 'Highest tier with insurance and warranty diagnostic eligibility.',
-    priceMonthly: 2800,
-    priceYearly: 28000,
-    features: [
-      'One preventive diagnostic every 3 months',
-      '20% discount on additional visits',
-      'Insurance and warranty diagnostic eligibility',
-      'Highest priority scheduling',
-      'Dedicated advisory support',
-      'Digital service history',
-    ],
-  },
-];
-
-async function seedSubscriptionPlans() {
-  for (const plan of DOCUMENT_PLANS) {
-    const [record] = await SubscriptionPlan.findOrCreate({
-      where: { slug: plan.slug },
-      defaults: {
-        name: plan.name,
-        description: plan.description,
-        priceMonthly: plan.priceMonthly,
-        priceYearly: plan.priceYearly,
-        features: plan.features,
-        inspectionLimit: null,
-      },
-    });
-    if (record) {
-      await record.update({
-        name: plan.name,
-        description: plan.description,
-        priceMonthly: plan.priceMonthly,
-        priceYearly: plan.priceYearly,
-        features: plan.features,
-        inspectionLimit: null,
-      });
-    }
-  }
-
-  // Migrate any subscriptions from legacy plans (Starter, Pro) to Standard, then remove legacy plans
-  const legacyPlans = await SubscriptionPlan.findAll({
-    where: { slug: { [Op.in]: ['starter', 'pro'] } },
-  });
-  const standardPlan = await SubscriptionPlan.findOne({ where: { slug: 'standard' } });
-  if (standardPlan && legacyPlans.length > 0) {
-    const legacyIds = legacyPlans.map((p) => p.id);
-    await Subscription.update(
-      { planId: standardPlan.id },
-      { where: { planId: { [Op.in]: legacyIds } } }
+export function assertDatabaseConfigured(): void {
+  const missing = ['DB_NAME', 'DB_HOST', 'DB_USER', 'DB_PASSWORD'].filter(
+    (k) => !process.env[k],
+  );
+  if (missing.length) {
+    throw new Error(
+      `PostgreSQL is required. Set in .env: ${missing.join(', ')}`,
     );
   }
-  await SubscriptionPlan.destroy({ where: { slug: { [Op.in]: ['starter', 'pro'] } } });
-
-  console.log('Seeded subscription plans (Standard, Plus, Premium)');
 }
 
-async function seedDefaultUsers() {
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@coltium-auto.com';
-  const techEmail = process.env.SEED_TECH_EMAIL || 'tech@coltium-auto.com';
-  const defaultPassword = process.env.SEED_DEFAULT_PASSWORD || 'Coltium123!';
+const sequelizeOptions: SequelizeOptions = {
+  ...(envConfig as SequelizeOptions),
+  dialect: 'postgres',
+  models: [
+    User,
+    Category,
+    Product,
+    CartItem,
+    CheckoutSession,
+    SourcingRequest,
+    SourcingQuote,
+    SourcingAttachment,
+    Shipment,
+    MarketplaceOrder,
+    AdminSourcingOrder,
+  ],
+  logging: process.env.DB_LOGGING === 'true' ? console.log : false,
+};
 
-  const existingAdmin = await User.findOne({ where: { email: adminEmail } });
-  const existingTech = await User.findOne({ where: { email: techEmail } });
+export const db = new Sequelize(sequelizeOptions);
 
-  const passwordHash = await bcrypt.hash(defaultPassword, 10);
-
-  if (!existingAdmin) {
-    await User.create({
-      email: adminEmail,
-      password: passwordHash,
-      name: 'Coltium Admin',
-      role: 'admin',
-      isActive: true,
-    } as any);
-    console.log(`Seeded admin user: ${adminEmail} / ${defaultPassword}`);
-  }
-
-  if (!existingTech) {
-    await User.create({
-      email: techEmail,
-      password: passwordHash,
-      name: 'Coltium Technician',
-      role: 'technician',
-      isActive: true,
-    } as any);
-    console.log(`Seeded technician user: ${techEmail} / ${defaultPassword}`);
-  }
-}
-
-async function initializeDatabase() {
+export async function initializeDatabase(): Promise<void> {
+  assertDatabaseConfigured();
   try {
-    await db.sync({ alter: true });
-    await seedSubscriptionPlans();
-    await seedDefaultUsers();
-    console.log('Database synced successfully (Coltium-Auto)');
-  } catch (error) {
-    console.error('Failed to sync database:', error);
+    await db.authenticate();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('no encryption') || msg.includes('pg_hba')) {
+      console.error(
+        '\nPostgreSQL connection failed. For remote hosts, SSL is enabled automatically.\n' +
+          'Also check:\n' +
+          '  • DB_HOST, DB_USER, DB_PASSWORD, DB_NAME in .env (use a Dubiken database, e.g. dubiken)\n' +
+          '  • Server firewall / pg_hba allows your IP\n' +
+          '  • DB_SSL_REJECT_UNAUTHORIZED=false for Azure dev if cert errors persist\n',
+      );
+    }
+    throw err;
   }
+  await db.sync({ alter: true });
+  await seedDatabaseIfEmpty();
+  console.log(
+    `Postgres connected (${process.env.DB_HOST}/${process.env.DB_NAME})`,
+  );
 }
-
-export { db, initializeDatabase };

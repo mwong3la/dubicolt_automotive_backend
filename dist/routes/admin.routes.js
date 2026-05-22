@@ -32,34 +32,26 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const technicianController = __importStar(require("../controllers/technician.controller"));
-const adminSubscriptionController = __importStar(require("../controllers/adminSubscription.controller"));
-const adminPaymentController = __importStar(require("../controllers/adminPayment.controller"));
-const adminPlanController = __importStar(require("../controllers/adminPlan.controller"));
-const contactMessageController = __importStar(require("../controllers/contactMessage.controller"));
-const auth_middleware_1 = __importDefault(require("../middlewares/auth.middleware"));
-const auth_middleware_2 = require("../middlewares/auth.middleware");
-const rbac_types_1 = require("../types/rbac.types");
+const adminController = __importStar(require("../controllers/admin.controller"));
+const auth_middleware_1 = require("../middlewares/auth.middleware");
 const router = (0, express_1.Router)();
-router.use(auth_middleware_1.default);
-router.use((0, auth_middleware_2.requireRole)([rbac_types_1.UserRole.ADMIN]));
-router.get('/technicians', technicianController.list);
-router.post('/technicians', technicianController.create);
-// Plans: list, create, update
-router.get('/plans', adminPlanController.listPlans);
-router.post('/plans', adminPlanController.createPlan);
-router.patch('/plans/:id', adminPlanController.updatePlan);
-// Subscriptions: list and update status
-router.get('/subscriptions', adminSubscriptionController.listSubscriptions);
-router.patch('/subscriptions/:id/status', adminSubscriptionController.updateSubscriptionStatus);
-// Payments: list all, create manual
-router.get('/payments', adminPaymentController.listPayments);
-router.post('/payments', adminPaymentController.createManualPayment);
-// Website contact form submissions
-router.get('/contact-messages', contactMessageController.listContactMessages);
+router.use(auth_middleware_1.requireAuth, auth_middleware_1.requireAdmin);
+router.get('/dashboard', adminController.getDashboard);
+router.get('/analytics', adminController.getAnalytics);
+router.get('/categories', adminController.listCategories);
+router.get('/categories/:id', adminController.getCategory);
+router.post('/categories', adminController.createCategory);
+router.put('/categories/:id', adminController.updateCategory);
+router.get('/inventory/kpis', adminController.getInventoryKpis);
+router.post('/inventory/sync-storefront', adminController.syncStorefront);
+router.get('/inventory', adminController.listInventory);
+router.post('/inventory/products', adminController.createInventoryProduct);
+router.get('/inventory/products/:id', adminController.getInventoryProduct);
+router.put('/inventory/products/:id', adminController.updateInventoryProduct);
+router.get('/sourcing/requests', adminController.listSourcingRequests);
+router.get('/sourcing/requests/:id', adminController.getSourcingDetail);
+router.put('/sourcing/requests/:id/quote', adminController.saveOfficialQuote);
+router.get('/orders', adminController.listOrders);
 exports.default = router;

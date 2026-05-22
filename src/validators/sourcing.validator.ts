@@ -1,0 +1,25 @@
+import { AppError } from '../errors/AppError';
+
+export function validateCreateSourcingRequest(body: Record<string, unknown>): Record<string, unknown> {
+  const details: Record<string, string[]> = {};
+  if (!body.product_name) details.product_name = ['Required'];
+  if (!body.description || String(body.description).length < 20) {
+    details.description = ['Description must be at least 20 characters'];
+  }
+  if (!body.accept_terms) details.accept_terms = ['You must accept terms'];
+  if (Object.keys(details).length) {
+    throw new AppError(400, 'validation_error', 'Validation failed', details);
+  }
+  return body;
+}
+
+export function validateOfficialQuote(body: Record<string, unknown>): Record<string, unknown> {
+  const details: Record<string, string[]> = {};
+  if (!body.unit_price) details.unit_price = ['Required'];
+  if (!body.transport) details.transport = ['Required'];
+  if (!body.lead_time_days) details.lead_time_days = ['Required'];
+  if (Object.keys(details).length) {
+    throw new AppError(400, 'validation_error', 'Validation failed', details);
+  }
+  return body;
+}

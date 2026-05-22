@@ -1,74 +1,62 @@
-import { NextFunction, Request, Response } from "express";
-import { User } from "../database/models/User";
-import jwt from 'jsonwebtoken'
-import { AuthenticatedRequest } from "../types/auth";
-import dotenv from 'dotenv';
-import { Permission, UserRole } from "../types/rbac.types";
-import { hasPermission } from "../config/permissions";
-dotenv.config();
+import { NextFunction, Request, Response } from 'express';
+import jwt, { type SignOptions } from 'jsonwebtoken';
+import { dubikenStore } from '../dubiken/store';
+import type { DubikenUser } from '../dubiken/types';
+import { AppError } from '../errors/AppError';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'coltium-secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'dubiken-dev-secret';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
-export const isAuthenticated = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        res.status(401).json({ message: 'No token provided' });
-        return
-    }
+export interface AuthRequest extends Request {
+  user?: DubikenUser;
+}
 
+export function signTokens(user: DubikenUser) {
+  const accessOpts: SignOptions = { expiresIn: '1h' };
+  const refreshOpts: SignOptions = { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] };
+
+  const access_token = jwt.sign(
+    { userId: user.id, role: user.role, email: user.email },
+    JWT_SECRET,
+    accessOpts,
+  );
+  const refresh_token = jwt.sign(
+    { userId: user.id, type: 'refresh' },
+    JWT_SECRET,
+    refreshOpts,
+  );
+  return { access_token, refresh_token, expires_in: 3600 };
+}
+
+export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    next(new AppError(401, 'unauthorized', 'Authentication required'));
+    return;
+  }
+  try {
     const token = authHeader.split(' ')[1];
-
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-
-        const user = await User.findByPk(decoded.userId);
-        if (!user) {
-            res.status(401).json({ message: 'Invalid user' });
-            return
-        }
-
-        req.user = user;
-        req.userRole = user.role;
-        next();
-    } catch (error: any) {
-        console.error('Auth error:', error);
-        res.status(401).json({
-            success: false,
-            message: 'Invalid or expired token',
-            error: error.message
-        });
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const user = await dubikenStore.getUser(decoded.userId);
+    if (!user) {
+      next(new AppError(401, 'unauthorized', 'Invalid user'));
+      return;
     }
-};
+    req.user = user;
+    next();
+  } catch {
+    next(new AppError(401, 'unauthorized', 'Invalid or expired token'));
+  }
+}
 
-export const requirePermission = (permission: Permission) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        if (!req.user || !req.userRole) {
-            res.status(401).json({ error: 'Authentication required' });
-            return
-        }
-
-        if (!hasPermission(req.userRole, permission)) {
-            res.status(403).json({ error: 'Insufficient permissions' });
-            return
-        }
-
-        next();
-    };
-};
-
-export const requireRole = (roles: UserRole[]) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-        if (!req.user || !req.userRole) {
-            res.status(401).json({ error: 'Authentication required' });
-            return;
-        }
-
-        if (!roles.includes(req.userRole)) {
-            res.status(403).json({ error: 'Insufficient role privileges' });
-            return;
-        }
-
-        next();
-    };
-};
-export default isAuthenticated
+export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    next(new AppError(401, 'unauthorized', 'Authentication required'));
+    return;
+  }
+  if (req.user.role !== 'admin') {
+    next(new AppError(403, 'forbidden', 'Admin access required'));
+    return;
+  }
+  next();
+}

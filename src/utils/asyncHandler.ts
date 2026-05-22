@@ -1,0 +1,10 @@
+import { NextFunction, Request, Response } from 'express';
+
+type AsyncRoute = (req: Request, res: Response, next: NextFunction) => Promise<void>;
+
+/** Wraps async route handlers so rejections reach the global error middleware */
+export function asyncHandler(fn: AsyncRoute) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}

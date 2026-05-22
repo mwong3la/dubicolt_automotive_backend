@@ -3,67 +3,50 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requireRole = exports.requirePermission = exports.isAuthenticated = void 0;
-const User_1 = require("../database/models/User");
+exports.signTokens = signTokens;
+exports.requireAuth = requireAuth;
+exports.requireAdmin = requireAdmin;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const dotenv_1 = __importDefault(require("dotenv"));
-const permissions_1 = require("../config/permissions");
-dotenv_1.default.config();
-const JWT_SECRET = process.env.JWT_SECRET || 'coltium-secret';
-const isAuthenticated = async (req, res, next) => {
+const store_1 = require("../dubiken/store");
+const AppError_1 = require("../errors/AppError");
+const JWT_SECRET = process.env.JWT_SECRET || 'dubiken-dev-secret';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+function signTokens(user) {
+    const accessOpts = { expiresIn: '1h' };
+    const refreshOpts = { expiresIn: JWT_EXPIRES_IN };
+    const access_token = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role, email: user.email }, JWT_SECRET, accessOpts);
+    const refresh_token = jsonwebtoken_1.default.sign({ userId: user.id, type: 'refresh' }, JWT_SECRET, refreshOpts);
+    return { access_token, refresh_token, expires_in: 3600 };
+}
+async function requireAuth(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
-        res.status(401).json({ message: 'No token provided' });
+        next(new AppError_1.AppError(401, 'unauthorized', 'Authentication required'));
         return;
     }
-    const token = authHeader.split(' ')[1];
     try {
+        const token = authHeader.split(' ')[1];
         const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
-        const user = await User_1.User.findByPk(decoded.userId);
+        const user = await store_1.dubikenStore.getUser(decoded.userId);
         if (!user) {
-            res.status(401).json({ message: 'Invalid user' });
+            next(new AppError_1.AppError(401, 'unauthorized', 'Invalid user'));
             return;
         }
         req.user = user;
-        req.userRole = user.role;
         next();
     }
-    catch (error) {
-        console.error('Auth error:', error);
-        res.status(401).json({
-            success: false,
-            message: 'Invalid or expired token',
-            error: error.message
-        });
+    catch {
+        next(new AppError_1.AppError(401, 'unauthorized', 'Invalid or expired token'));
     }
-};
-exports.isAuthenticated = isAuthenticated;
-const requirePermission = (permission) => {
-    return (req, res, next) => {
-        if (!req.user || !req.userRole) {
-            res.status(401).json({ error: 'Authentication required' });
-            return;
-        }
-        if (!(0, permissions_1.hasPermission)(req.userRole, permission)) {
-            res.status(403).json({ error: 'Insufficient permissions' });
-            return;
-        }
-        next();
-    };
-};
-exports.requirePermission = requirePermission;
-const requireRole = (roles) => {
-    return (req, res, next) => {
-        if (!req.user || !req.userRole) {
-            res.status(401).json({ error: 'Authentication required' });
-            return;
-        }
-        if (!roles.includes(req.userRole)) {
-            res.status(403).json({ error: 'Insufficient role privileges' });
-            return;
-        }
-        next();
-    };
-};
-exports.requireRole = requireRole;
-exports.default = exports.isAuthenticated;
+}
+function requireAdmin(req, res, next) {
+    if (!req.user) {
+        next(new AppError_1.AppError(401, 'unauthorized', 'Authentication required'));
+        return;
+    }
+    if (req.user.role !== 'admin') {
+        next(new AppError_1.AppError(403, 'forbidden', 'Admin access required'));
+        return;
+    }
+    next();
+}

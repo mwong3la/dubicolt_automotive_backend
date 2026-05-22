@@ -1,0 +1,26 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_routes_1 = __importDefault(require("./auth.routes"));
+const products_routes_1 = __importDefault(require("./products.routes"));
+const storefront_routes_1 = __importDefault(require("./storefront.routes"));
+const cart_routes_1 = __importDefault(require("./cart.routes"));
+const checkout_routes_1 = __importDefault(require("./checkout.routes"));
+const sourcing_routes_1 = __importDefault(require("./sourcing.routes"));
+const admin_routes_1 = __importDefault(require("./admin.routes"));
+const shipments_routes_1 = __importDefault(require("./shipments.routes"));
+const upload_routes_1 = __importDefault(require("./upload.routes"));
+const apiRouter = (0, express_1.Router)();
+apiRouter.use('/auth', auth_routes_1.default);
+apiRouter.use('/products', products_routes_1.default);
+apiRouter.use(storefront_routes_1.default);
+apiRouter.use('/cart', cart_routes_1.default);
+apiRouter.use('/checkout', checkout_routes_1.default);
+apiRouter.use('/me', sourcing_routes_1.default);
+apiRouter.use('/admin', admin_routes_1.default);
+apiRouter.use('/shipments', shipments_routes_1.default);
+apiRouter.use('/uploads', upload_routes_1.default);
+exports.default = apiRouter;

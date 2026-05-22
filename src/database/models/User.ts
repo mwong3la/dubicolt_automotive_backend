@@ -8,18 +8,11 @@ import {
   AllowNull,
   Unique,
   IsEmail,
-  HasMany,
 } from 'sequelize-typescript';
-import { UserRole } from '../../types/rbac.types';
-import { Vehicle } from './Vehicle';
-import { Inspection } from './Inspection';
-import { Subscription } from './Subscription';
 
-@Table({
-  tableName: 'users',
-  timestamps: true,
-  underscored: true,
-})
+export type UserRoleDb = 'buyer' | 'admin' | 'vendor';
+
+@Table({ tableName: 'users', timestamps: true, underscored: true })
 export class User extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
@@ -40,32 +33,18 @@ export class User extends Model {
   @Column(DataType.STRING)
   password!: string;
 
-  @AllowNull(true)
+  @AllowNull(false)
+  @Default('Unknown')
   @Column(DataType.STRING)
-  phone?: string;
+  company!: string;
 
-  @Column({
-    type: DataType.ENUM(...Object.values(UserRole)),
-    allowNull: false,
-    defaultValue: UserRole.USER,
-  })
-  role!: UserRole;
+  @AllowNull(false)
+  @Default('buyer')
+  @Column(DataType.STRING)
+  role!: UserRoleDb;
 
   @AllowNull(false)
   @Default(true)
   @Column(DataType.BOOLEAN)
-  isActive!: boolean;
-
-  @AllowNull(true)
-  @Column(DataType.DATE)
-  lastLoginAt?: Date;
-
-  @HasMany(() => Vehicle, 'userId')
-  vehicles!: Vehicle[];
-
-  @HasMany(() => Inspection, 'userId')
-  inspections!: Inspection[];
-
-  @HasMany(() => Subscription, 'userId')
-  subscriptions!: Subscription[];
+  is_active!: boolean;
 }

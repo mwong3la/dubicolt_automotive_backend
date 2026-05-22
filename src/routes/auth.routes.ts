@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { login, signup, me, logout } from '../controllers/auth.controller';
-import isAuthenticated from '../middlewares/auth.middleware';
+import * as authController from '../controllers/auth.controller';
+import { requireAuth } from '../middlewares/auth.middleware';
 
-const authRouter = Router();
+const router = Router();
 
-authRouter.post('/login', login);
-authRouter.post('/signup', signup);
-authRouter.post('/logout', logout);
-authRouter.get('/me', isAuthenticated, me);
+router.post('/login', authController.login);
+router.post('/register', authController.register);
+router.post('/logout', authController.logout);
+router.get('/me', requireAuth, authController.me);
 
-export default authRouter;
+export default router;
