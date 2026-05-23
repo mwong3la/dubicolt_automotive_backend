@@ -58,9 +58,19 @@ __decorate([
 ], Product.prototype, "price_usd", void 0);
 __decorate([
     (0, sequelize_typescript_1.AllowNull)(true),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.INTEGER),
+    __metadata("design:type", Object)
+], Product.prototype, "price_kes", void 0);
+__decorate([
+    (0, sequelize_typescript_1.AllowNull)(true),
     (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.DECIMAL(12, 2)),
     __metadata("design:type", Object)
 ], Product.prototype, "original_price", void 0);
+__decorate([
+    (0, sequelize_typescript_1.AllowNull)(true),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.INTEGER),
+    __metadata("design:type", Object)
+], Product.prototype, "compare_at_price_kes", void 0);
 __decorate([
     (0, sequelize_typescript_1.AllowNull)(false),
     (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
@@ -92,6 +102,11 @@ __decorate([
     __metadata("design:type", String)
 ], Product.prototype, "vendor", void 0);
 __decorate([
+    (0, sequelize_typescript_1.Default)('draft'),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.ENUM('draft', 'published')),
+    __metadata("design:type", String)
+], Product.prototype, "status", void 0);
+__decorate([
     (0, sequelize_typescript_1.Default)(false),
     (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.BOOLEAN),
     __metadata("design:type", Boolean)
@@ -106,6 +121,11 @@ __decorate([
     (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.INTEGER),
     __metadata("design:type", Number)
 ], Product.prototype, "stock", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Default)(1),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.INTEGER),
+    __metadata("design:type", Number)
+], Product.prototype, "min_order", void 0);
 __decorate([
     (0, sequelize_typescript_1.Default)(false),
     (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.BOOLEAN),

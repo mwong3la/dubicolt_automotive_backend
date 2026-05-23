@@ -37,6 +37,6 @@ const express_1 = require("express");
 const shipmentsController = __importStar(require("../controllers/shipments.controller"));
 const auth_middleware_1 = require("../middlewares/auth.middleware");
 const router = (0, express_1.Router)();
-router.get('/', auth_middleware_1.requireAuth, auth_middleware_1.requireAdmin, shipmentsController.list);
 router.get('/:trackingId', shipmentsController.getByTrackingId);
+router.get('/', auth_middleware_1.requireAuth, auth_middleware_1.requireAdmin, shipmentsController.list);
 exports.default = router;

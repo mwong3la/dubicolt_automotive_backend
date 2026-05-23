@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.userToDomain = userToDomain;
 exports.productToDto = productToDto;
+exports.productDisplayVendor = productDisplayVendor;
 exports.productToMarketplace = productToMarketplace;
 exports.categoryToAdmin = categoryToAdmin;
 exports.productToInventory = productToInventory;
@@ -24,39 +25,82 @@ function userToDomain(u) {
         role: u.role,
     };
 }
+function resolvePriceKes(p) {
+    if (p.price_kes != null && Number(p.price_kes) > 0)
+        return Math.round(Number(p.price_kes));
+    return (0, currency_1.usdToKes)(Number(p.price_usd));
+}
+function resolveCompareAtKes(p) {
+    if (p.compare_at_price_kes != null && Number(p.compare_at_price_kes) > 0) {
+        return Math.round(Number(p.compare_at_price_kes));
+    }
+    if (p.original_price != null && Number(p.original_price) > 0) {
+        return (0, currency_1.usdToKes)(Number(p.original_price));
+    }
+    return null;
+}
 function productToDto(p) {
+    const price_kes = resolvePriceKes(p);
+    const compare_at_price_kes = resolveCompareAtKes(p);
     return {
         id: p.id,
         name: p.name,
         sku: p.sku,
-        price: Number(p.price_usd),
-        original_price: p.original_price != null ? Number(p.original_price) : null,
+        price_kes,
+        compare_at_price_kes,
+        save_percent: (0, currency_1.productSavePercentKes)(price_kes, compare_at_price_kes),
+        price: (0, currency_1.kesToUsd)(price_kes),
+        original_price: compare_at_price_kes != null ? (0, currency_1.kesToUsd)(compare_at_price_kes) : null,
         origin: p.origin,
         image_url: p.image_url,
         images: p.images ?? [],
         specs: p.specs ?? {},
-        currency_ke: p.currency_ke ?? (0, currency_1.formatKsh)(Number(p.price_usd)),
-        currency_ae: p.currency_ke ?? (0, currency_1.formatKsh)(Number(p.price_usd)),
+        currency_ke: p.currency_ke ?? (0, currency_1.formatKshLabelFromKes)(price_kes),
+        currency_ae: p.currency_ke ?? (0, currency_1.formatKshLabelFromKes)(price_kes),
         description: p.description ?? '',
-        vendor: p.vendor ?? p.brand ?? 'Verified supplier',
+        vendor: productDisplayVendor(p),
         category: p.category,
         review_count: 0,
         logistics_note: p.description?.trim() ||
             'Lead time and routing depend on origin hub and destination port. Customs clearance available on request.',
     };
 }
+function resolveMinOrder(p) {
+    const col = Number(p.min_order);
+    if (Number.isFinite(col) && col > 0)
+        return Math.round(col);
+    const raw = p.specs?.moq ?? p.specs?.MOQ ?? p.specs?.min_order;
+    const n = parseInt(String(raw ?? ''), 10);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+}
+const GENERIC_VENDOR_NAMES = new Set([
+    'dubiken',
+    'dubiken marketplace',
+    'verified supplier',
+    'verified oem',
+]);
+/** Brand or supplier name for cards — never the platform name */
+function productDisplayVendor(p) {
+    const raw = (p.brand?.trim() || p.vendor?.trim() || '').trim();
+    if (!raw || GENERIC_VENDOR_NAMES.has(raw.toLowerCase()))
+        return '';
+    return raw;
+}
 function productToMarketplace(p) {
+    const price_kes = resolvePriceKes(p);
     return {
         id: `mp-${p.id}`,
         product_id: p.id,
         name: p.name,
-        vendor: p.vendor ?? 'Dubiken',
+        vendor: productDisplayVendor(p),
         origin: p.origin,
-        price_usd: Number(p.price_usd),
-        price_kes: (0, currency_1.formatKsh)(Number(p.price_usd)),
-        price_aed: (0, currency_1.formatKsh)(Number(p.price_usd)),
+        price_usd: (0, currency_1.kesToUsd)(price_kes),
+        price_kes: (0, currency_1.formatKshLabelFromKes)(price_kes),
+        price_aed: (0, currency_1.formatKshLabelFromKes)(price_kes),
         image_url: p.image_url,
         cta: p.marketplace_cta ?? 'cart',
+        stock: Math.max(0, Number(p.stock) || 0),
+        min_order: resolveMinOrder(p),
     };
 }
 function categoryToAdmin(c) {
@@ -73,19 +117,33 @@ function categoryToAdmin(c) {
         status: c.status,
     };
 }
+const HUB_LABELS = {
+    KE: 'Kenya',
+    AE: 'Dubai (UAE)',
+    CN: 'China',
+};
+function resolveProductStatus(p) {
+    if (p.status === 'published' || p.status === 'draft')
+        return p.status;
+    return p.on_marketplace ? 'published' : 'draft';
+}
 function productToInventory(p) {
+    const origin = p.origin;
+    const priceKes = resolvePriceKes(p);
     return {
         id: p.id,
         sku: p.sku,
         name: p.name,
         category: p.category,
-        origin: p.origin,
+        origin,
+        origin_label: HUB_LABELS[origin] ?? p.origin,
         image_url: p.image_url,
         stock: p.stock,
         low_stock: p.low_stock,
-        value: `$${(Number(p.price_usd) * p.stock).toLocaleString()}`,
-        marketplace_price: `$${Number(p.price_usd).toFixed(2)} USD`,
-        stock_levels: [{ hub: p.origin, percent: 70, low: p.low_stock }],
+        status: resolveProductStatus(p),
+        value: (0, currency_1.formatKshLabelFromKes)(priceKes * p.stock),
+        marketplace_price: (0, currency_1.formatKshLabelFromKes)(priceKes),
+        stock_levels: [{ hub: origin, percent: 100, low: p.low_stock }],
     };
 }
 function sourcingToAdminList(sr) {
@@ -119,13 +177,15 @@ async function sourcingToAdminDetail(sr) {
         quantity: sr.quantity ?? '—',
         material_grade: sr.material_grade,
         voltage_range: sr.voltage_range,
-        budget_total: sr.budget_total ?? '—',
+        budget_total: (0, currency_1.normalizeStoredMoneyLabel)(sr.budget_total) || '—',
         budget_subtitle: sr.budget_subtitle ?? 'Estimated Total',
         regional_targets: (sr.regional_targets ?? []),
         attachments,
         quotes,
         destination_port: sr.destination_port ?? sr.destination,
-        estimated_budget_range: sr.estimated_budget_range,
+        estimated_budget_range: sr.estimated_budget_range
+            ? (0, currency_1.normalizeStoredMoneyLabel)(sr.estimated_budget_range)
+            : undefined,
         requester_location: sr.requester_location ?? sr.destination,
         product_image_url: sr.product_image_url ?? sr.reference_images?.[0],
     };
@@ -133,8 +193,8 @@ async function sourcingToAdminDetail(sr) {
 function quoteToDto(q) {
     return {
         id: q.id,
-        unit_price: q.unit_price,
-        shipping_cost: q.shipping_cost,
+        unit_price: (0, currency_1.normalizeStoredMoneyLabel)(q.unit_price),
+        shipping_cost: q.shipping_cost ? (0, currency_1.normalizeStoredMoneyLabel)(q.shipping_cost) : undefined,
         lead_time: q.lead_time,
         shipment: q.shipment,
         notes: q.notes,
@@ -147,7 +207,7 @@ function sourcingToUserList(sr) {
         request_number: sr.request_number,
         title: sr.product_title,
         origin: sr.origin,
-        price: sr.budget_total ?? 'Pending quote',
+        price: sr.budget_total ? (0, currency_1.normalizeStoredMoneyLabel)(sr.budget_total) : 'Pending quote',
         status: sr.user_status ?? 'PENDING',
         status_variant: sr.status_variant ?? 'gray',
     };
@@ -160,7 +220,9 @@ async function sourcingToUserDetail(sr) {
         description: sr.description,
         quantity: sr.quantity ?? '—',
         voltage_range: sr.voltage_range,
-        budget_total: sr.budget_total ?? list.price,
+        budget_total: sr.budget_total && sr.budget_total !== 'Pending quote'
+            ? (0, currency_1.normalizeStoredMoneyLabel)(sr.budget_total)
+            : list.price,
         budget_subtitle: sr.budget_subtitle ?? 'Estimated Total',
         regional_targets: sr.regional_targets ?? [],
         attachments: (sr.attachments ?? []).map((a) => ({
@@ -171,18 +233,24 @@ async function sourcingToUserDetail(sr) {
         })),
         quotes,
         destination_port: sr.destination_port,
-        estimated_budget_range: sr.estimated_budget_range,
+        estimated_budget_range: sr.estimated_budget_range
+            ? (0, currency_1.normalizeStoredMoneyLabel)(sr.estimated_budget_range)
+            : undefined,
+        delivery_county: sr.destination,
+        delivery_address: sr.requester_location,
     };
 }
 function cartItemToDto(row) {
     const p = row.product;
+    const unit_price_kes = resolvePriceKes(p);
     return {
         id: row.id,
         product_id: row.product_id,
         name: p.name,
         sku: p.sku,
         quantity: row.quantity,
-        unit_price: Number(p.price_usd),
+        unit_price: (0, currency_1.kesToUsd)(unit_price_kes),
+        unit_price_kes,
         origin: p.origin,
         image_url: p.image_url,
     };

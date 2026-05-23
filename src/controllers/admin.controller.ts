@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { adminService } from '../services/admin.service';
+import { AppError } from '../errors/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { parseIntQuery, parseStatuses } from '../utils/query';
 import { validateOfficialQuote } from '../validators/sourcing.validator';
@@ -81,4 +82,14 @@ export const saveOfficialQuote = asyncHandler(async (req: Request, res: Response
 
 export const listOrders = asyncHandler(async (_req: Request, res: Response) => {
   res.json(await adminService.listOrders());
+});
+
+export const updateMarketplaceOrder = asyncHandler(async (req: Request, res: Response) => {
+  const status = String(req.body?.status ?? '').trim();
+  if (!status) {
+    throw new AppError(400, 'validation_error', 'status is required', {
+      status: ['status is required'],
+    });
+  }
+  res.json(await adminService.updateMarketplaceOrderStatus(req.params.id, status));
 });

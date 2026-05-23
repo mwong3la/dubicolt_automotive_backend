@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listOrders = exports.saveOfficialQuote = exports.getSourcingDetail = exports.listSourcingRequests = exports.updateInventoryProduct = exports.createInventoryProduct = exports.getInventoryProduct = exports.listInventory = exports.syncStorefront = exports.getInventoryKpis = exports.updateCategory = exports.createCategory = exports.getCategory = exports.listCategories = exports.getAnalytics = exports.getDashboard = void 0;
+exports.updateMarketplaceOrder = exports.listOrders = exports.saveOfficialQuote = exports.getSourcingDetail = exports.listSourcingRequests = exports.updateInventoryProduct = exports.createInventoryProduct = exports.getInventoryProduct = exports.listInventory = exports.syncStorefront = exports.getInventoryKpis = exports.updateCategory = exports.createCategory = exports.getCategory = exports.listCategories = exports.getAnalytics = exports.getDashboard = void 0;
 const admin_service_1 = require("../services/admin.service");
+const AppError_1 = require("../errors/AppError");
 const asyncHandler_1 = require("../utils/asyncHandler");
 const query_1 = require("../utils/query");
 const sourcing_validator_1 = require("../validators/sourcing.validator");
@@ -63,4 +64,13 @@ exports.saveOfficialQuote = (0, asyncHandler_1.asyncHandler)(async (req, res) =>
 });
 exports.listOrders = (0, asyncHandler_1.asyncHandler)(async (_req, res) => {
     res.json(await admin_service_1.adminService.listOrders());
+});
+exports.updateMarketplaceOrder = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    const status = String(req.body?.status ?? '').trim();
+    if (!status) {
+        throw new AppError_1.AppError(400, 'validation_error', 'status is required', {
+            status: ['status is required'],
+        });
+    }
+    res.json(await admin_service_1.adminService.updateMarketplaceOrderStatus(req.params.id, status));
 });

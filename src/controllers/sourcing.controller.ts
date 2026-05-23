@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { sourcingService } from '../services/sourcing.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { validateCreateSourcingRequest } from '../validators/sourcing.validator';
+import { normalizeTrackingId } from '../utils/tracking-id';
 import type { AuthRequest } from '../middlewares/auth.middleware';
 
 export const getDashboard = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -22,7 +23,15 @@ export const listMarketplaceOrders = asyncHandler(async (req: AuthRequest, res: 
   res.json(await sourcingService.listMarketplaceOrders(req.user?.id));
 });
 
+export const getMarketplaceOrder = asyncHandler(async (req: AuthRequest, res: Response) => {
+  res.json(await sourcingService.getMarketplaceOrder(req.user!.id, req.params.id));
+});
+
 export const listShipments = asyncHandler(async (req: AuthRequest, res: Response) => {
   const data = await sourcingService.listShipments(req.user!.id);
   res.json({ data });
+});
+
+export const getShipment = asyncHandler(async (req: AuthRequest, res: Response) => {
+  res.json(await sourcingService.getShipment(req.user!.id, normalizeTrackingId(req.params.trackingId)));
 });

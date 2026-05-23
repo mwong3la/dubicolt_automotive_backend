@@ -21,8 +21,9 @@ class AuthService {
             throw new AppError_1.AppError(400, 'email_exists', 'Account already exists with this email');
         }
         const user = await store_1.dubikenStore.createUser({
-            ...data,
-            name: data.company_name.split(' ')[0],
+            email: data.email,
+            password: data.password,
+            name: data.name,
         });
         return { ...(0, auth_middleware_1.signTokens)(user), user: store_1.dubikenStore.toPublicUser(user) };
     }

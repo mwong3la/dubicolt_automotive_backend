@@ -16,6 +16,22 @@ export class MarketplaceOrder extends Model {
   @BelongsTo(() => User)
   user?: User;
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  buyer_name?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  buyer_phone?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  buyer_email?: string;
+
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  buyer_address?: string;
+
   @AllowNull(false)
   @Column(DataType.STRING)
   order_number!: string;

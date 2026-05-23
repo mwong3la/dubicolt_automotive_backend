@@ -36,9 +36,19 @@ export class Product extends Model {
   @Column(DataType.DECIMAL(12, 2))
   price_usd!: number;
 
+  /** Canonical marketplace price in Kenyan Shillings (admin-entered). */
+  @AllowNull(true)
+  @Column(DataType.INTEGER)
+  price_kes?: number | null;
+
   @AllowNull(true)
   @Column(DataType.DECIMAL(12, 2))
   original_price?: number | null;
+
+  /** Compare-at / was price in KES (admin-entered). */
+  @AllowNull(true)
+  @Column(DataType.INTEGER)
+  compare_at_price_kes?: number | null;
 
   @AllowNull(false)
   @Column(DataType.STRING)
@@ -64,6 +74,10 @@ export class Product extends Model {
   @Column(DataType.STRING)
   vendor?: string;
 
+  @Default('draft')
+  @Column(DataType.ENUM('draft', 'published'))
+  status!: 'draft' | 'published';
+
   @Default(false)
   @Column(DataType.BOOLEAN)
   on_marketplace!: boolean;
@@ -75,6 +89,10 @@ export class Product extends Model {
   @Default(0)
   @Column(DataType.INTEGER)
   stock!: number;
+
+  @Default(1)
+  @Column(DataType.INTEGER)
+  min_order!: number;
 
   @Default(false)
   @Column(DataType.BOOLEAN)

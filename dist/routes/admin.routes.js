@@ -54,4 +54,5 @@ router.get('/sourcing/requests', adminController.listSourcingRequests);
 router.get('/sourcing/requests/:id', adminController.getSourcingDetail);
 router.put('/sourcing/requests/:id/quote', adminController.saveOfficialQuote);
 router.get('/orders', adminController.listOrders);
+router.patch('/orders/:id', adminController.updateMarketplaceOrder);
 exports.default = router;

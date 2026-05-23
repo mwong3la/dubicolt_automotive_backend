@@ -56,9 +56,15 @@ export class AdminService {
   }
 
   createProduct(body: Parameters<typeof dubikenStore.createInventoryProduct>[0]) {
-    if (!body.name || !body.sku || body.price_usd <= 0 || body.stock < 1) {
+    if (!body.name?.trim() || !body.sku?.trim()) {
       throw new AppError(400, 'validation_error', 'Invalid product data', {
-        form: ['name, sku, price_usd > 0, and stock >= 1 are required'],
+        form: ['name and sku are required'],
+      });
+    }
+    const publishing = body.status === 'published';
+    if (publishing && (body.price_kes <= 0 || body.stock < 1)) {
+      throw new AppError(400, 'validation_error', 'Invalid product data', {
+        form: ['price_kes > 0 and stock >= 1 are required to publish'],
       });
     }
     return dubikenStore.createInventoryProduct(body);
@@ -99,6 +105,21 @@ export class AdminService {
 
   async listOrders() {
     return { data: await dubikenStore.listAdminMarketplaceOrders() };
+  }
+
+  async updateMarketplaceOrderStatus(id: string, status: string) {
+    const row = await dubikenStore.updateMarketplaceOrderStatus(id, status);
+    if (!row) {
+      const normalized = status.trim().toUpperCase();
+      const allowed = ['PROCESSING', 'IN TRANSIT', 'DELIVERED', 'CANCELLED'];
+      if (!allowed.includes(normalized)) {
+        throw new AppError(400, 'validation_error', 'Invalid order status', {
+          status: [`Must be one of: ${allowed.join(', ')}`],
+        });
+      }
+      throw new AppError(404, 'not_found', 'Order not found');
+    }
+    return row;
   }
 }
 

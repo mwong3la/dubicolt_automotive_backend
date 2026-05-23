@@ -13,16 +13,16 @@ export function validateLogin(body: Record<string, unknown>): { email: string; p
 }
 
 export function validateRegister(body: Record<string, unknown>): {
-  company_name: string;
+  name: string;
   email: string;
   password: string;
 } {
-  const company_name = String(body.company_name ?? '').trim();
+  const name = String(body.name ?? '').trim();
   const email = String(body.email ?? '').trim();
   const password = String(body.password ?? '');
   const details: Record<string, string[]> = {};
-  if (!company_name || company_name.length < 2) {
-    details.company_name = ['Company name must be at least 2 characters'];
+  if (!name || name.length < 2) {
+    details.name = ['Full name must be at least 2 characters'];
   }
   if (!email) details.email = ['Email is required'];
   if (!password || password.length < 8) {
@@ -31,5 +31,5 @@ export function validateRegister(body: Record<string, unknown>): {
   if (Object.keys(details).length) {
     throw new AppError(400, 'validation_error', 'Validation failed', details);
   }
-  return { company_name, email, password };
+  return { name, email, password };
 }

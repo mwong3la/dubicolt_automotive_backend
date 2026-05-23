@@ -88,7 +88,9 @@ async function seedDatabaseIfEmpty() {
             category: 'Renewable Energy',
             origin: p.origin,
             price_usd: p.price,
+            price_kes: p.price_kes,
             original_price: p.original_price,
+            compare_at_price_kes: p.compare_at_price_kes,
             image_url: p.image_url,
             images: p.images,
             specs: p.specs,
@@ -96,6 +98,7 @@ async function seedDatabaseIfEmpty() {
             currency_ae: p.currency_ae,
             stock: 100,
             low_stock: false,
+            status: 'published',
             on_marketplace: true,
             marketplace_cta: 'cart',
             vendor: 'Dubiken',
@@ -106,6 +109,7 @@ async function seedDatabaseIfEmpty() {
         const product = await Product_1.Product.findByPk(seed_ids_1.sid.product(mp.product_id));
         if (product) {
             await product.update({
+                status: 'published',
                 on_marketplace: true,
                 vendor: mp.vendor,
                 marketplace_cta: mp.cta,
@@ -127,6 +131,7 @@ async function seedDatabaseIfEmpty() {
                 specs: {},
                 stock: inv.stock,
                 low_stock: inv.low_stock,
+                status: 'published',
                 on_marketplace: true,
                 marketplace_cta: 'cart',
                 vendor: 'Dubiken',

@@ -1,7 +1,11 @@
 import { Response } from 'express';
 import { cartService } from '../services/cart.service';
 import { asyncHandler } from '../utils/asyncHandler';
-import { validateAddCartItem, validateShipping } from '../validators/cart.validator';
+import {
+  validateAddCartItem,
+  validateGuestCheckout,
+  validateShipping,
+} from '../validators/cart.validator';
 import type { AuthRequest } from '../middlewares/auth.middleware';
 import { AppError } from '../errors/AppError';
 
@@ -27,6 +31,12 @@ export const removeItem = asyncHandler(async (req: AuthRequest, res: Response) =
 export const checkoutShipping = asyncHandler(async (req: AuthRequest, res: Response) => {
   const shipping = validateShipping(req.body ?? {});
   res.json(await cartService.createShippingCheckout(req.user!.id, shipping));
+});
+
+export const guestCheckout = asyncHandler(async (req, res: Response) => {
+  const body = validateGuestCheckout(req.body ?? {});
+  const result = await cartService.completeGuestCheckout(body);
+  res.status(201).json(result);
 });
 
 export const checkoutComplete = asyncHandler(async (req: AuthRequest, res: Response) => {

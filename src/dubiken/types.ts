@@ -19,7 +19,12 @@ export interface Product {
   id: string;
   name: string;
   sku: string;
+  price_kes: number;
+  compare_at_price_kes: number | null;
+  save_percent: number | null;
+  /** @deprecated checkout/cart legacy — derived from price_kes */
   price: number;
+  /** @deprecated derived from compare_at_price_kes */
   original_price: number | null;
   origin: string;
   image_url: string;
@@ -99,6 +104,8 @@ export interface UserSourcingDetail extends UserSourcingListItem {
   quote_date?: string;
   destination_port?: string;
   estimated_budget_range?: string;
+  delivery_county?: string;
+  delivery_address?: string;
 }
 
 export interface CartItem {
@@ -108,6 +115,7 @@ export interface CartItem {
   sku: string;
   quantity: number;
   unit_price: number;
+  unit_price_kes: number;
   origin: string;
   image_url: string;
 }
@@ -125,18 +133,31 @@ export interface AdminCategory {
   status: CategoryStatus;
 }
 
+export type ProductStatus = 'draft' | 'published';
+
 export interface AdminInventoryItem {
   id: string;
   sku: string;
   name: string;
   category: string;
   origin: HubCode;
+  origin_label: string;
   image_url: string;
   stock: number;
   low_stock: boolean;
+  status: ProductStatus;
   value: string;
   marketplace_price: string;
   stock_levels: { hub: HubCode; percent: number; low?: boolean }[];
+}
+
+export interface AdminInventoryHubCount {
+  hub: HubCode;
+  label: string;
+  flag: string;
+  product_count: number;
+  published_count: number;
+  stock_units: number;
 }
 
 export interface MarketplaceProduct {
@@ -150,6 +171,8 @@ export interface MarketplaceProduct {
   price_aed: string;
   image_url: string;
   cta: MarketplaceCta;
+  stock: number;
+  min_order?: number;
 }
 
 export interface Shipment {

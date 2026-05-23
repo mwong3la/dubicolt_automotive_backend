@@ -31,6 +31,12 @@ class CartService {
             throw new AppError_1.AppError(404, 'not_found', 'Checkout session not found');
         return result;
     }
+    async completeGuestCheckout(body) {
+        const result = await store_1.dubikenStore.completeGuestCheckout(body);
+        if (!result)
+            throw new AppError_1.AppError(400, 'validation_error', 'Could not place order');
+        return result;
+    }
 }
 exports.CartService = CartService;
 exports.cartService = new CartService();

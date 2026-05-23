@@ -4,7 +4,7 @@ import { requireAuth, requireAdmin } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-router.get('/', requireAuth, requireAdmin, shipmentsController.list);
 router.get('/:trackingId', shipmentsController.getByTrackingId);
+router.get('/', requireAuth, requireAdmin, shipmentsController.list);
 
 export default router;

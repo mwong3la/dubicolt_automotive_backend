@@ -10,6 +10,7 @@ import type {
   UserSourcingDetail,
   UserSourcingListItem,
 } from './types';
+import { productSavePercentKes, usdToKes } from '../utils/currency';
 
 const INVERTER_MAIN =
   'https://images.pexels.com/photos/442150/pexels-photo-442150.jpeg?auto=compress&cs=tinysrgb&w=900';
@@ -40,6 +41,9 @@ export const products: Product[] = [
     sku: 'IND-SLR-8802',
     price: 4250,
     original_price: 4800,
+    price_kes: usdToKes(4250),
+    compare_at_price_kes: usdToKes(4800),
+    save_percent: productSavePercentKes(usdToKes(4250), usdToKes(4800)),
     origin: 'CN',
     image_url: INVERTER_MAIN,
     images: [
@@ -68,6 +72,9 @@ export const products: Product[] = [
     sku: 'DBK-BAT-10K',
     price: 2800,
     original_price: null,
+    price_kes: usdToKes(2800),
+    compare_at_price_kes: null,
+    save_percent: null,
     origin: 'CN',
     image_url: INVERTER_MAIN,
     images: [],
@@ -86,6 +93,9 @@ export const products: Product[] = [
     sku: 'DBK-PNL-550',
     price: 165,
     original_price: 189,
+    price_kes: usdToKes(165),
+    compare_at_price_kes: usdToKes(189),
+    save_percent: productSavePercentKes(usdToKes(165), usdToKes(189)),
     origin: 'CN',
     image_url:
       'https://images.pexels.com/photos/159397/solar-panel-array-power-sun-159397.jpeg?auto=compress&cs=tinysrgb&w=400',
@@ -113,6 +123,7 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     price_aed: 'AED 15,600',
     image_url: INVERTER_MAIN,
     cta: 'quote',
+    stock: 42,
   },
   {
     id: 'mp-2',
@@ -126,6 +137,7 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     image_url:
       'https://images.pexels.com/photos/159397/solar-panel-array-power-sun-159397.jpeg?auto=compress&cs=tinysrgb&w=400',
     cta: 'cart',
+    stock: 1200,
   },
   {
     id: 'mp-3',
@@ -138,6 +150,7 @@ export const marketplaceProducts: MarketplaceProduct[] = [
     price_aed: 'AED 3,195',
     image_url: INVERTER_MAIN,
     cta: 'cart',
+    stock: 88,
   },
 ];
 
@@ -195,7 +208,7 @@ export const adminSourcingDetails: Record<string, Partial<SourcingRequestDetail>
   'sr-1': {
     quantity: '500 Units',
     voltage_range: '1100V - 1500V',
-    budget_total: '$12,500.00',
+    budget_total: 'KSh 1,687,500',
     budget_subtitle: 'Estimated Total (EXW/FOB)',
     regional_targets: [
       { code: 'CN', label: 'China (CN)' },
@@ -213,7 +226,7 @@ export const adminUserSourcingMap: Record<string, string> = { 'sr-1': 'usr-1' };
 export const userSourcingSummary = {
   active: 12,
   pending_quotes: 4,
-  procured_total: '$42k',
+  procured_total: 'KSh 5.7M',
 };
 
 export const userSourcingList: UserSourcingListItem[] = [
@@ -222,7 +235,7 @@ export const userSourcingList: UserSourcingListItem[] = [
     request_number: 'DBK-99021',
     title: 'High-Grade Photovoltaic Inverters (50 units)',
     origin: 'CN',
-    price: '$12,500.00',
+    price: 'KSh 1,687,500',
     status: 'QUOTED',
     status_variant: 'orange',
   },
@@ -231,7 +244,7 @@ export const userSourcingList: UserSourcingListItem[] = [
     request_number: 'DBK-98774',
     title: 'Premium Textile Fabric Rolls (Silk Blend)',
     origin: 'AE',
-    price: '$8,200.00',
+    price: 'KSh 1,107,000',
     status: 'PROCESSING',
     status_variant: 'blue',
   },
@@ -240,7 +253,7 @@ export const userSourcingList: UserSourcingListItem[] = [
     request_number: 'DBK-98661',
     title: 'Pneumatic Drilling Components',
     origin: 'CN',
-    price: 'Est. $4,500',
+    price: 'Est. KSh 607,500',
     status: 'PENDING QUOTE',
     status_variant: 'gray',
   },
@@ -252,13 +265,13 @@ export const userSourcingDetails: Record<string, UserSourcingDetail> = {
     request_number: 'REQ-4029',
     title: 'Industrial Solar Inverters (500 Units)',
     origin: 'CN',
-    price: '$12,500.00',
+    price: 'KSh 1,687,500',
     status: 'ACTIVE REQUEST',
     status_variant: 'blue',
     description: 'High-efficiency string inverters for commercial rooftop arrays.',
     quantity: '500 Units',
     voltage_range: '1100V - 1500V',
-    budget_total: '$12,500.00',
+    budget_total: 'KSh 1,687,500',
     budget_subtitle: 'Estimated Total (EXW/FOB)',
     regional_targets: [
       { code: 'CN', label: 'China (CN)' },
@@ -268,8 +281,8 @@ export const userSourcingDetails: Record<string, UserSourcingDetail> = {
     quotes: [
       {
         id: 'q-1',
-        unit_price: '$21.50',
-        shipping_cost: '$1,200.00',
+        unit_price: 'KSh 2,903',
+        shipping_cost: 'KSh 162,000',
         lead_time: '14 Days',
         shipment: 'FOB Ningbo',
         notes: 'Verified manufacturer with ISO 9001.',
@@ -328,6 +341,8 @@ export const adminInventoryItems: AdminInventoryItem[] = [
     name: 'Hyperion X8 Solar Inverter 100kW',
     category: 'Renewable Energy',
     origin: 'CN',
+    origin_label: 'China',
+    status: 'published',
     image_url:
       'https://images.pexels.com/photos/159397/solar-panel-array-power-sun-159397.jpeg?auto=compress&cs=tinysrgb&w=120',
     stock: 842,
@@ -345,6 +360,8 @@ export const adminInventoryItems: AdminInventoryItem[] = [
     name: 'Industrial Pneumatic Drill Set',
     category: 'Industrial Parts',
     origin: 'CN',
+    origin_label: 'China',
+    status: 'published',
     image_url:
       'https://images.pexels.com/photos/162553/keys-workshop-mechanic-tools-162553.jpeg?auto=compress&cs=tinysrgb&w=120',
     stock: 18,

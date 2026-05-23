@@ -13,13 +13,14 @@ export class AuthService {
     return { ...signTokens(user), user: dubikenStore.toPublicUser(user) };
   }
 
-  async register(data: { company_name: string; email: string; password: string }) {
+  async register(data: { name: string; email: string; password: string }) {
     if (await dubikenStore.findUserByEmail(data.email)) {
       throw new AppError(400, 'email_exists', 'Account already exists with this email');
     }
     const user = await dubikenStore.createUser({
-      ...data,
-      name: data.company_name.split(' ')[0],
+      email: data.email,
+      password: data.password,
+      name: data.name,
     });
     return { ...signTokens(user), user: dubikenStore.toPublicUser(user) };
   }

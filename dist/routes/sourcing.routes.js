@@ -42,5 +42,7 @@ router.get('/sourcing', sourcingController.getDashboard);
 router.post('/sourcing/requests', sourcingController.createRequest);
 router.get('/sourcing/requests/:id', sourcingController.getRequestDetail);
 router.get('/orders/marketplace', sourcingController.listMarketplaceOrders);
+router.get('/orders/marketplace/:id', sourcingController.getMarketplaceOrder);
 router.get('/shipments', sourcingController.listShipments);
+router.get('/shipments/:trackingId', sourcingController.getShipment);
 exports.default = router;

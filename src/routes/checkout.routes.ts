@@ -4,6 +4,8 @@ import { requireAuth } from '../middlewares/auth.middleware';
 
 const router = Router();
 
+router.post('/guest', cartController.guestCheckout);
+
 router.use(requireAuth);
 
 router.post('/shipping', cartController.checkoutShipping);

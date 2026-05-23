@@ -54,7 +54,9 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
       category: 'Renewable Energy',
       origin: p.origin,
       price_usd: p.price,
+      price_kes: p.price_kes,
       original_price: p.original_price,
+      compare_at_price_kes: p.compare_at_price_kes,
       image_url: p.image_url,
       images: p.images,
       specs: p.specs,
@@ -62,6 +64,7 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
       currency_ae: p.currency_ae,
       stock: 100,
       low_stock: false,
+      status: 'published',
       on_marketplace: true,
       marketplace_cta: 'cart',
       vendor: 'Dubiken',
@@ -73,6 +76,7 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
     const product = await Product.findByPk(sid.product(mp.product_id));
     if (product) {
       await product.update({
+        status: 'published',
         on_marketplace: true,
         vendor: mp.vendor,
         marketplace_cta: mp.cta,
@@ -95,6 +99,7 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
         specs: {},
         stock: inv.stock,
         low_stock: inv.low_stock,
+        status: 'published',
         on_marketplace: true,
         marketplace_cta: 'cart',
         vendor: 'Dubiken',

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkoutComplete = exports.checkoutShipping = exports.removeItem = exports.updateItem = exports.addItem = exports.getCart = void 0;
+exports.checkoutComplete = exports.guestCheckout = exports.checkoutShipping = exports.removeItem = exports.updateItem = exports.addItem = exports.getCart = void 0;
 const cart_service_1 = require("../services/cart.service");
 const asyncHandler_1 = require("../utils/asyncHandler");
 const cart_validator_1 = require("../validators/cart.validator");
@@ -21,6 +21,11 @@ exports.removeItem = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
 exports.checkoutShipping = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const shipping = (0, cart_validator_1.validateShipping)(req.body ?? {});
     res.json(await cart_service_1.cartService.createShippingCheckout(req.user.id, shipping));
+});
+exports.guestCheckout = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    const body = (0, cart_validator_1.validateGuestCheckout)(req.body ?? {});
+    const result = await cart_service_1.cartService.completeGuestCheckout(body);
+    res.status(201).json(result);
 });
 exports.checkoutComplete = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const checkout_id = String(req.body?.checkout_id ?? '');
