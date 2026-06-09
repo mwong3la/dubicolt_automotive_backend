@@ -3,8 +3,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SEED_SUPPLIERS = exports.SEED_PRODUCTS = exports.SEED_USERS = exports.DEFAULT_PASSWORD = void 0;
 exports.DEFAULT_PASSWORD = 'Dubicolt123!';
 exports.SEED_USERS = [
-    { id: 'usr_admin', email: 'admin@dubicolt.com', name: 'Admin', company: 'Dubicolt', role: 'admin' },
-    { id: 'usr_buyer', email: 'buyer@test.com', name: 'Test Buyer', company: '', role: 'buyer' },
+    {
+        id: 'a0000001-0000-4000-8000-000000000001',
+        email: 'admin@dubicolt.com',
+        name: 'Admin',
+        company: 'Dubicolt',
+        role: 'admin',
+    },
+    {
+        id: 'a0000002-0000-4000-8000-000000000002',
+        email: 'buyer@test.com',
+        name: 'Test Buyer',
+        company: '',
+        role: 'buyer',
+    },
 ];
 exports.SEED_PRODUCTS = [
     {
