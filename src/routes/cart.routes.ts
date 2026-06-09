@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import * as controller from '../controllers/mvp-cart.controller';
+import * as controller from '../controllers/cart.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 
 const router = Router();

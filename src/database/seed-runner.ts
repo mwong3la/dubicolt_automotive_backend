@@ -23,11 +23,11 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
     });
   }
 
-  await seedDubicoltMvpCatalog();
+  await seedDubicoltCatalog();
   console.log('Seeded Dubicolt Automotive database (users, products, suppliers, inventory)');
 }
 
-export async function seedDubicoltMvpCatalog(): Promise<void> {
+export async function seedDubicoltCatalog(): Promise<void> {
   for (const s of dubicoltSeed.SEED_SUPPLIERS) {
     const exists = await Supplier.findOne({ where: { name: s.name } });
     if (!exists) await Supplier.create(s);

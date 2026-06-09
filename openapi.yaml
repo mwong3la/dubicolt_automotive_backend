@@ -1,0 +1,1342 @@
+openapi: 3.0.3
+info:
+  title: Dubicolt Automotive API
+  description: |
+    MVP API for automotive parts marketplace.
+
+    **Flow 1 — In-stock purchase:** Search → Cart → Checkout → Pay → Order → Track delivery
+
+    **Flow 2 — Request unavailable part:** Request part → Admin quote → Accept → Pay → Order → Track delivery
+
+    **Seed users:** `admin@dubicolt.com` / `buyer@test.com` (password: `Dubicolt123!`)
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3001/api
+    description: Local development
+
+tags:
+  - name: Auth
+  - name: Vehicles
+  - name: Products
+  - name: Inventory
+  - name: Cart
+  - name: Orders
+  - name: Payments
+  - name: Part Requests
+  - name: Quotations
+  - name: Suppliers
+  - name: Deliveries
+  - name: Reports
+  - name: Uploads
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [buyer, admin, vendor]
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+          example: 3600
+        user:
+          $ref: '#/components/schemas/User'
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        engine:
+          type: string
+        vin:
+          type: string
+
+    VehicleInput:
+      type: object
+      required: [make, model, year]
+      properties:
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        engine:
+          type: string
+        vin:
+          type: string
+
+    CompatibleVehicle:
+      type: object
+      properties:
+        make:
+          type: string
+        model:
+          type: string
+        yearFrom:
+          type: integer
+        yearTo:
+          type: integer
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        brand:
+          type: string
+        oemNumber:
+          type: string
+        sellingPrice:
+          type: integer
+          description: Price in KES
+        imageUrl:
+          type: string
+          format: uri
+        compatibleVehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibleVehicle'
+        stock:
+          type: integer
+
+    ProductInput:
+      type: object
+      required: [title, sku, description, category, brand, sellingPrice, imageUrl]
+      properties:
+        title:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        brand:
+          type: string
+        oemNumber:
+          type: string
+        sellingPrice:
+          type: integer
+        imageUrl:
+          type: string
+        compatibleVehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompatibleVehicle'
+
+    InventoryItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        sku:
+          type: string
+        quantity:
+          type: integer
+        lowStock:
+          type: boolean
+
+    StockMovement:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+
+    StockResult:
+      type: object
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+
+    CartItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: integer
+
+    Cart:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        total:
+          type: integer
+
+    AddCartItem:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+
+    UpdateCartItem:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+
+    CheckoutRequest:
+      type: object
+      required: [deliveryMethod, deliveryAddress]
+      properties:
+        deliveryMethod:
+          type: string
+          example: DELIVERY
+        deliveryAddress:
+          type: string
+          example: Ruiru, Kiambu
+
+    CheckoutResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+        amount:
+          type: integer
+
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [PENDING_PAYMENT, PAID, PROCESSING, DISPATCHED, IN_TRANSIT, DELIVERED, CANCELLED]
+        total:
+          type: integer
+
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/OrderSummary'
+        - type: object
+          properties:
+            deliveryMethod:
+              type: string
+            deliveryAddress:
+              type: string
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  title:
+                    type: string
+                  quantity:
+                    type: integer
+                  unitPrice:
+                    type: integer
+            deliveries:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+
+    StkPushRequest:
+      type: object
+      required: [orderId, phone]
+      properties:
+        orderId:
+          type: string
+        phone:
+          type: string
+          example: "254712345678"
+
+    StkPushResponse:
+      type: object
+      properties:
+        checkoutRequestId:
+          type: string
+        orderId:
+          type: string
+        amount:
+          type: integer
+        phone:
+          type: string
+        message:
+          type: string
+
+    PartRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        requestId:
+          type: string
+          format: uuid
+        vehicle:
+          type: object
+          properties:
+            make:
+              type: string
+            model:
+              type: string
+            year:
+              type: integer
+        partName:
+          type: string
+        description:
+          type: string
+        vin:
+          type: string
+        photoUrls:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [SUBMITTED, UNDER_REVIEW, QUOTED, CLOSED]
+
+    PartRequestInput:
+      type: object
+      required: [vehicle, partName, description]
+      properties:
+        vehicle:
+          type: object
+          required: [make, model, year]
+          properties:
+            make:
+              type: string
+            model:
+              type: string
+            year:
+              type: integer
+        partName:
+          type: string
+        description:
+          type: string
+        vin:
+          type: string
+        photoUrls:
+          type: array
+          items:
+            type: string
+
+    Quotation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        price:
+          type: integer
+        leadTimeDays:
+          type: integer
+        validUntil:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, REJECTED, EXPIRED]
+
+    QuotationInput:
+      type: object
+      required: [requestId, price, leadTimeDays, validUntil]
+      properties:
+        requestId:
+          type: string
+        price:
+          type: integer
+        leadTimeDays:
+          type: integer
+        validUntil:
+          type: string
+          format: date
+        supplierId:
+          type: string
+          format: uuid
+
+    AcceptQuotationResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+        amount:
+          type: integer
+
+    Supplier:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+
+    SupplierInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+
+    Delivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+        status:
+          type: string
+          enum: [PROCESSING, DISPATCHED, IN_TRANSIT, DELIVERED]
+        notes:
+          type: string
+
+    DeliveryStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [PROCESSING, DISPATCHED, IN_TRANSIT, DELIVERED]
+
+    Dashboard:
+      type: object
+      properties:
+        salesToday:
+          type: integer
+        ordersToday:
+          type: integer
+        pendingQuotes:
+          type: integer
+        lowStockProducts:
+          type: integer
+
+    UploadResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        name:
+          type: string
+        size:
+          type: integer
+        mime_type:
+          type: string
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new buyer account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      responses:
+        '204':
+          description: Logged out
+
+  /auth/profile:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /vehicles:
+    get:
+      tags: [Vehicles]
+      summary: List saved vehicles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vehicle'
+    post:
+      tags: [Vehicles]
+      summary: Save a vehicle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleInput'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+
+  /vehicles/{id}:
+    put:
+      tags: [Vehicles]
+      summary: Update a vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleInput'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+    delete:
+      tags: [Vehicles]
+      summary: Delete a vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+
+  /products/search:
+    get:
+      tags: [Products]
+      summary: Search products
+      parameters:
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: make
+          in: query
+          schema:
+            type: string
+        - name: model
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: brand
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  /products:
+    get:
+      tags: [Products]
+      summary: List all products
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      tags: [Products]
+      summary: Create product (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+
+  /products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+    put:
+      tags: [Products]
+      summary: Update product (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+
+  /inventory:
+    get:
+      tags: [Inventory]
+      summary: List inventory (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryItem'
+
+  /inventory/stock-in:
+    post:
+      tags: [Inventory]
+      summary: Add stock (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockMovement'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockResult'
+
+  /inventory/stock-out:
+    post:
+      tags: [Inventory]
+      summary: Remove stock (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockMovement'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockResult'
+
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Get cart
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+  /cart/items:
+    post:
+      tags: [Cart]
+      summary: Add item to cart
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItem'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+  /cart/items/{id}:
+    put:
+      tags: [Cart]
+      summary: Update cart item quantity
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItem'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+    delete:
+      tags: [Cart]
+      summary: Remove cart item
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+
+  /cart/checkout:
+    post:
+      tags: [Cart]
+      summary: Checkout cart and create order
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderSummary'
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order by ID or order number
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+
+  /payments/mpesa/stk-push:
+    post:
+      tags: [Payments]
+      summary: Initiate M-Pesa STK push
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StkPushRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StkPushResponse'
+
+  /payments/callback:
+    post:
+      tags: [Payments]
+      summary: M-Pesa payment callback webhook
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ResultCode:
+                    type: integer
+                  ResultDesc:
+                    type: string
+
+  /part-requests:
+    get:
+      tags: [Part Requests]
+      summary: List part requests
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PartRequest'
+    post:
+      tags: [Part Requests]
+      summary: Submit a part request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartRequestInput'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartRequest'
+
+  /part-requests/{id}:
+    get:
+      tags: [Part Requests]
+      summary: Get part request with quotations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PartRequest'
+                  - type: object
+                    properties:
+                      quotations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Quotation'
+
+  /quotations:
+    post:
+      tags: [Quotations]
+      summary: Create quotation (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuotationInput'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quotation'
+
+  /quotations/{id}:
+    get:
+      tags: [Quotations]
+      summary: Get quotation details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quotation'
+
+  /quotations/{id}/accept:
+    post:
+      tags: [Quotations]
+      summary: Accept quotation and create order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptQuotationResponse'
+
+  /quotations/{id}/reject:
+    post:
+      tags: [Quotations]
+      summary: Reject quotation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quotation'
+
+  /suppliers:
+    get:
+      tags: [Suppliers]
+      summary: List suppliers (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Supplier'
+    post:
+      tags: [Suppliers]
+      summary: Create supplier (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierInput'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+
+  /suppliers/{id}:
+    put:
+      tags: [Suppliers]
+      summary: Update supplier (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierInput'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+
+  /deliveries:
+    post:
+      tags: [Deliveries]
+      summary: Create delivery for an order (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId]
+              properties:
+                orderId:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+
+  /deliveries/{id}:
+    get:
+      tags: [Deliveries]
+      summary: Get delivery by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+
+  /deliveries/{id}/status:
+    post:
+      tags: [Deliveries]
+      summary: Update delivery status (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryStatusUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+
+  /reports/dashboard:
+    get:
+      tags: [Reports]
+      summary: Admin dashboard summary
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+
+  /uploads/image:
+    post:
+      tags: [Uploads]
+      summary: Upload a single image
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+
+  /uploads/images:
+    post:
+      tags: [Uploads]
+      summary: Upload up to 8 images
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                gallery:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UploadResponse'

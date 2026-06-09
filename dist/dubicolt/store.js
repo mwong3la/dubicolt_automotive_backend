@@ -3,20 +3,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.dubicoltStore = void 0;
 exports.initDubicoltStore = initDubicoltStore;
 const db_1 = require("../database/db");
-const mvp_store_1 = require("./mvp.store");
-let mvpStore = null;
+const data_store_1 = require("./data.store");
+let dataStore = null;
 async function initDubicoltStore() {
     (0, db_1.assertDatabaseConfigured)();
     await (0, db_1.initializeDatabase)();
-    mvpStore = new mvp_store_1.MvpStore();
-    await mvpStore.init();
-    console.log('Persistence: PostgreSQL (Dubicolt Automotive MVP)');
+    dataStore = new data_store_1.DataStore();
+    await dataStore.init();
+    console.log('Persistence: PostgreSQL (Dubicolt Automotive)');
 }
 function getStore() {
-    if (!mvpStore) {
+    if (!dataStore) {
         throw new Error('Data store not initialized. Call initDubicoltStore() first.');
     }
-    return mvpStore;
+    return dataStore;
 }
 exports.dubicoltStore = new Proxy({}, {
     get(_target, prop) {

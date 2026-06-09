@@ -13,7 +13,7 @@ src/
   middlewares/
   dubicolt/
     store.ts        # Postgres store proxy
-    mvp.store.ts    # MVP business logic
+    data.store.ts   # Business logic
     seed.ts
   database/models/  # Sequelize + PostgreSQL
 ```
@@ -30,6 +30,16 @@ npm run dev
 ```
 
 Base URL: `http://localhost:3001/api`
+
+## API documentation (Swagger)
+
+Interactive docs: **http://localhost:3001/api/docs**
+
+Raw OpenAPI spec: `http://localhost:3001/api/docs/openapi.yaml` (source: `openapi.yaml`)
+
+1. Open `/api/docs`
+2. Call `POST /auth/login` with a seed user
+3. Copy `access_token` and click **Authorize** (paste as `Bearer <token>`)
 
 ## Seed users
 
