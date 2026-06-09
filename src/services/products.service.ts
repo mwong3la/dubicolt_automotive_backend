@@ -1,7 +1,7 @@
 import { dubicoltStore } from '../dubicolt/store';
 import type { ProductPayload } from '../dubicolt/types';
 
-export class MvpProductsService {
+export class ProductsService {
   create(data: ProductPayload) {
     return dubicoltStore.createProduct(data);
   }
@@ -30,4 +30,4 @@ export class MvpProductsService {
   }
 }
 
-export const mvpProductsService = new MvpProductsService();
+export const productsService = new ProductsService();

@@ -5,6 +5,7 @@ import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 import http from 'http';
 import cors from 'cors';
 import { initDubicoltStore } from './dubicolt/store';
+import { setupSwagger } from './lib/swagger';
 
 const app: Application = express();
 const server = http.createServer(app);
@@ -20,8 +21,10 @@ app.use(
 app.use(express.json());
 
 app.get('/', (_req: Request, res: Response) => {
-  res.json({ message: 'Dubicolt Automotive API', version: '1.0', base: '/api' });
+  res.json({ message: 'Dubicolt Automotive API', version: '1.0', base: '/api', docs: '/api/docs' });
 });
+
+setupSwagger(app);
 
 app.use('/api', apiRouter);
 app.use(notFoundHandler);
@@ -31,7 +34,10 @@ async function startServer() {
   try {
     await initDubicoltStore();
     console.log('Seed users: admin@dubicolt.com / buyer@test.com (password: Dubicolt123!)');
-    server.listen(PORT, () => console.log(`Dubicolt Automotive API running on http://localhost:${PORT}/api`));
+    server.listen(PORT, () => {
+      console.log(`Dubicolt Automotive API running on http://localhost:${PORT}/api`);
+      console.log(`Swagger docs: http://localhost:${PORT}/api/docs`);
+    });
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

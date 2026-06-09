@@ -1,6 +1,6 @@
 import { dubicoltStore } from '../dubicolt/store';
 
-export class MvpCartService {
+export class CartService {
   getCart(userId: string) {
     return dubicoltStore.getCart(userId);
   }
@@ -22,4 +22,4 @@ export class MvpCartService {
   }
 }
 
-export const mvpCartService = new MvpCartService();
+export const cartService = new CartService();

@@ -37,7 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.seedDatabaseIfEmpty = seedDatabaseIfEmpty;
-exports.seedDubicoltMvpCatalog = seedDubicoltMvpCatalog;
+exports.seedDubicoltCatalog = seedDubicoltCatalog;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const User_1 = require("./models/User");
 const Product_1 = require("./models/Product");
@@ -60,10 +60,10 @@ async function seedDatabaseIfEmpty() {
             is_active: true,
         });
     }
-    await seedDubicoltMvpCatalog();
+    await seedDubicoltCatalog();
     console.log('Seeded Dubicolt Automotive database (users, products, suppliers, inventory)');
 }
-async function seedDubicoltMvpCatalog() {
+async function seedDubicoltCatalog() {
     for (const s of dubicoltSeed.SEED_SUPPLIERS) {
         const exists = await Supplier_1.Supplier.findOne({ where: { name: s.name } });
         if (!exists)

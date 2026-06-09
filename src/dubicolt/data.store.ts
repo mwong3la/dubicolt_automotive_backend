@@ -14,7 +14,7 @@ import { PartRequest } from '../database/models/PartRequest';
 import { Quotation } from '../database/models/Quotation';
 import { Supplier } from '../database/models/Supplier';
 import { Delivery } from '../database/models/Delivery';
-import { seedDubicoltMvpCatalog } from '../database/seed-runner';
+import { seedDubicoltCatalog } from '../database/seed-runner';
 import type { DubicoltUser, ProductPayload } from './types';
 
 const LOW_STOCK_THRESHOLD = 10;
@@ -39,7 +39,7 @@ function toDomainUser(u: User): DubicoltUser {
   };
 }
 
-function productToMvp(p: Product, qty?: number) {
+function productToDto(p: Product, qty?: number) {
   return {
     id: p.id,
     title: p.name,
@@ -83,9 +83,9 @@ async function syncProductStock(productId: string, quantity: number, transaction
   }
 }
 
-export class MvpStore {
+export class DataStore {
   async init(): Promise<void> {
-    await seedDubicoltMvpCatalog();
+    await seedDubicoltCatalog();
     await this.syncInventoryFromProducts();
   }
 
@@ -182,7 +182,7 @@ export class MvpStore {
       vendor: data.brand,
     });
     await InventoryRecord.create({ product_id: row.id, quantity: 0 });
-    return productToMvp(row, 0);
+    return productToDto(row, 0);
   }
 
   async listProducts() {
@@ -190,7 +190,7 @@ export class MvpStore {
     const result = [];
     for (const p of rows) {
       const inv = await InventoryRecord.findOne({ where: { product_id: p.id } });
-      result.push(productToMvp(p, inv?.quantity ?? p.stock));
+      result.push(productToDto(p, inv?.quantity ?? p.stock));
     }
     return result;
   }
@@ -199,7 +199,7 @@ export class MvpStore {
     const p = await Product.findByPk(id);
     if (!p) return null;
     const inv = await InventoryRecord.findOne({ where: { product_id: p.id } });
-    return productToMvp(p, inv?.quantity ?? p.stock);
+    return productToDto(p, inv?.quantity ?? p.stock);
   }
 
   async updateProduct(id: string, data: Partial<ProductPayload>) {
@@ -223,7 +223,7 @@ export class MvpStore {
     if (data.compatibleVehicles !== undefined) updates.compatible_vehicles = data.compatibleVehicles;
     await row.update(updates);
     const inv = await InventoryRecord.findOne({ where: { product_id: row.id } });
-    return productToMvp(row, inv?.quantity ?? row.stock);
+    return productToDto(row, inv?.quantity ?? row.stock);
   }
 
   async searchProducts(filters: {
@@ -265,7 +265,7 @@ export class MvpStore {
     const result = [];
     for (const p of rows) {
       const inv = await InventoryRecord.findOne({ where: { product_id: p.id } });
-      result.push(productToMvp(p, inv?.quantity ?? p.stock));
+      result.push(productToDto(p, inv?.quantity ?? p.stock));
     }
     return result;
   }

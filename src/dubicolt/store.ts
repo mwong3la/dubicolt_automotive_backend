@@ -1,25 +1,25 @@
 import { assertDatabaseConfigured, initializeDatabase } from '../database/db';
-import { MvpStore } from './mvp.store';
+import { DataStore } from './data.store';
 
-let mvpStore: MvpStore | null = null;
+let dataStore: DataStore | null = null;
 
 export async function initDubicoltStore(): Promise<void> {
   assertDatabaseConfigured();
   await initializeDatabase();
-  mvpStore = new MvpStore();
-  await mvpStore.init();
-  console.log('Persistence: PostgreSQL (Dubicolt Automotive MVP)');
+  dataStore = new DataStore();
+  await dataStore.init();
+  console.log('Persistence: PostgreSQL (Dubicolt Automotive)');
 }
 
-function getStore(): MvpStore {
-  if (!mvpStore) {
+function getStore(): DataStore {
+  if (!dataStore) {
     throw new Error('Data store not initialized. Call initDubicoltStore() first.');
   }
-  return mvpStore;
+  return dataStore;
 }
 
-export const dubicoltStore: MvpStore = new Proxy({} as MvpStore, {
-  get(_target, prop: keyof MvpStore) {
+export const dubicoltStore: DataStore = new Proxy({} as DataStore, {
+  get(_target, prop: keyof DataStore) {
     const store = getStore();
     const value = store[prop];
     if (typeof value === 'function') {

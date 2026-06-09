@@ -1,6 +1,6 @@
 import { dubicoltStore } from '../dubicolt/store';
 
-export class MvpOrdersService {
+export class OrdersService {
   list(userId?: string) {
     return dubicoltStore.listOrders(userId);
   }
@@ -10,4 +10,4 @@ export class MvpOrdersService {
   }
 }
 
-export const mvpOrdersService = new MvpOrdersService();
+export const ordersService = new OrdersService();
