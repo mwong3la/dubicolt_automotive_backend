@@ -29,7 +29,6 @@ app.use(error_middleware_1.errorHandler);
 async function startServer() {
     try {
         await (0, store_1.initDubicoltStore)();
-        console.log('Seed users: admin@dubicolt.com / buyer@test.com (password: Dubicolt123!)');
         server.listen(PORT, () => {
             console.log(`Dubicolt Automotive API running on http://localhost:${PORT}/api`);
             console.log(`Swagger docs: http://localhost:${PORT}/api/docs`);

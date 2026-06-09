@@ -1,8 +1,20 @@
 export const DEFAULT_PASSWORD = 'Dubicolt123!';
 
 export const SEED_USERS = [
-  { id: 'usr_admin', email: 'admin@dubicolt.com', name: 'Admin', company: 'Dubicolt', role: 'admin' as const },
-  { id: 'usr_buyer', email: 'buyer@test.com', name: 'Test Buyer', company: '', role: 'buyer' as const },
+  {
+    id: 'a0000001-0000-4000-8000-000000000001',
+    email: 'admin@dubicolt.com',
+    name: 'Admin',
+    company: 'Dubicolt',
+    role: 'admin' as const,
+  },
+  {
+    id: 'a0000002-0000-4000-8000-000000000002',
+    email: 'buyer@test.com',
+    name: 'Test Buyer',
+    company: '',
+    role: 'buyer' as const,
+  },
 ];
 
 export const SEED_PRODUCTS = [

@@ -8,7 +8,6 @@ info:
 
     **Flow 2 — Request unavailable part:** Request part → Admin quote → Accept → Pay → Order → Track delivery
 
-    **Seed users:** `admin@dubicolt.com` / `buyer@test.com` (password: `Dubicolt123!`)
   version: 1.0.0
 
 servers:
