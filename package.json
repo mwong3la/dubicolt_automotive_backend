@@ -1,7 +1,7 @@
 {
-  "name": "dubiken-api",
+  "name": "dubicolt-automotive-api",
   "version": "1.0.0",
-  "description": "Dubiken API — B2B sourcing, marketplace, and admin",
+  "description": "Dubicolt Automotive API — automotive parts marketplace MVP",
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",

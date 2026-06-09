@@ -7,9 +7,9 @@ exports.signTokens = signTokens;
 exports.requireAuth = requireAuth;
 exports.requireAdmin = requireAdmin;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const store_1 = require("../dubiken/store");
+const store_1 = require("../dubicolt/store");
 const AppError_1 = require("../errors/AppError");
-const JWT_SECRET = process.env.JWT_SECRET || 'dubiken-dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'dubicolt-dev-secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 function signTokens(user) {
     const accessOpts = { expiresIn: '1h' };
@@ -27,7 +27,7 @@ async function requireAuth(req, res, next) {
     try {
         const token = authHeader.split(' ')[1];
         const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
-        const user = await store_1.dubikenStore.getUser(decoded.userId);
+        const user = await store_1.dubicoltStore.getUser(decoded.userId);
         if (!user) {
             next(new AppError_1.AppError(401, 'unauthorized', 'Invalid user'));
             return;

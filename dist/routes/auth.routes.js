@@ -40,5 +40,6 @@ const router = (0, express_1.Router)();
 router.post('/login', authController.login);
 router.post('/register', authController.register);
 router.post('/logout', authController.logout);
+router.get('/profile', auth_middleware_1.requireAuth, authController.me);
 router.get('/me', auth_middleware_1.requireAuth, authController.me);
 exports.default = router;

@@ -9,16 +9,17 @@ exports.initializeDatabase = initializeDatabase;
 const sequelize_typescript_1 = require("sequelize-typescript");
 const config_1 = __importDefault(require("./config/config"));
 const User_1 = require("./models/User");
-const Category_1 = require("./models/Category");
 const Product_1 = require("./models/Product");
 const CartItem_1 = require("./models/CartItem");
-const CheckoutSession_1 = require("./models/CheckoutSession");
-const SourcingRequest_1 = require("./models/SourcingRequest");
-const SourcingQuote_1 = require("./models/SourcingQuote");
-const SourcingAttachment_1 = require("./models/SourcingAttachment");
-const Shipment_1 = require("./models/Shipment");
-const MarketplaceOrder_1 = require("./models/MarketplaceOrder");
-const AdminSourcingOrder_1 = require("./models/AdminSourcingOrder");
+const Vehicle_1 = require("./models/Vehicle");
+const InventoryRecord_1 = require("./models/InventoryRecord");
+const Order_1 = require("./models/Order");
+const OrderItem_1 = require("./models/OrderItem");
+const Payment_1 = require("./models/Payment");
+const PartRequest_1 = require("./models/PartRequest");
+const Quotation_1 = require("./models/Quotation");
+const Supplier_1 = require("./models/Supplier");
+const Delivery_1 = require("./models/Delivery");
 const seed_runner_1 = require("./seed-runner");
 const env = process.env.NODE_ENV || 'development';
 const envConfig = config_1.default[env];
@@ -33,16 +34,17 @@ const sequelizeOptions = {
     dialect: 'postgres',
     models: [
         User_1.User,
-        Category_1.Category,
         Product_1.Product,
         CartItem_1.CartItem,
-        CheckoutSession_1.CheckoutSession,
-        SourcingRequest_1.SourcingRequest,
-        SourcingQuote_1.SourcingQuote,
-        SourcingAttachment_1.SourcingAttachment,
-        Shipment_1.Shipment,
-        MarketplaceOrder_1.MarketplaceOrder,
-        AdminSourcingOrder_1.AdminSourcingOrder,
+        Vehicle_1.Vehicle,
+        InventoryRecord_1.InventoryRecord,
+        Order_1.Order,
+        OrderItem_1.OrderItem,
+        Payment_1.Payment,
+        PartRequest_1.PartRequest,
+        Quotation_1.Quotation,
+        Supplier_1.Supplier,
+        Delivery_1.Delivery,
     ],
     logging: process.env.DB_LOGGING === 'true' ? console.log : false,
 };
@@ -57,7 +59,7 @@ async function initializeDatabase() {
         if (msg.includes('no encryption') || msg.includes('pg_hba')) {
             console.error('\nPostgreSQL connection failed. For remote hosts, SSL is enabled automatically.\n' +
                 'Also check:\n' +
-                '  • DB_HOST, DB_USER, DB_PASSWORD, DB_NAME in .env (use a Dubiken database, e.g. dubiken)\n' +
+                '  • DB_HOST, DB_USER, DB_PASSWORD, DB_NAME in .env (e.g. dubicolt_automotive)\n' +
                 '  • Server firewall / pg_hba allows your IP\n' +
                 '  • DB_SSL_REJECT_UNAUTHORIZED=false for Azure dev if cert errors persist\n');
         }

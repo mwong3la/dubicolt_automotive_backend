@@ -1,84 +1,68 @@
-# Dubiken API
+# Dubicolt Automotive API
 
-Production-style Express + TypeScript API for the Dubiken Next.js app. Contract: `../dubiken/docs/API-SPEC.md`.
+Express + TypeScript API for the Dubicolt Automotive MVP — in-stock purchases and unavailable part requests.
 
 ## Architecture
 
 ```
 src/
-  app.ts                      # HTTP server, middleware stack
-  routes/                     # Thin routers → controllers only
-    index.ts
-    auth.routes.ts
-    products.routes.ts
-    storefront.routes.ts
-    cart.routes.ts
-    checkout.routes.ts
-    sourcing.routes.ts        # /me/*
-    admin.routes.ts
-    shipments.routes.ts
-  controllers/                # HTTP: parse request, call service, set status
-  services/                   # Business logic (throws AppError)
-  validators/                 # Request validation
+  app.ts
+  routes/           # MVP API routers
+  controllers/
+  services/
   middlewares/
-    auth.middleware.ts
-    error.middleware.ts       # Global 404 + error handler
-  errors/
-    AppError.ts
-  utils/
-    asyncHandler.ts
-    response.ts
-    query.ts
-  dubiken/
-    store.ts                  # Postgres only (required)
-    postgres.store.ts
-  database/models/            # Sequelize + Postgres
-  lib/azureBlob.ts
+  dubicolt/
+    store.ts        # Postgres store proxy
+    mvp.store.ts    # MVP business logic
+    seed.ts
+  database/models/  # Sequelize + PostgreSQL
 ```
 
-**Flow:** `Route → Controller → Service → Store → PostgreSQL`
-
-**PostgreSQL is required** — the API will not start without `DB_*` env vars.
-
-**Azure:** set `AZURE_STORAGE_*` for image uploads.
+**Flow:** `Route → Controller → Service → dubicoltStore → PostgreSQL`
 
 ## Quick start
 
 ```bash
 npm install
+cp .env.example .env   # configure DB_*
 npm run build
 npm run dev
 ```
 
-Base URL: `http://localhost:3001/api/v1`
+Base URL: `http://localhost:3001/api`
 
 ## Seed users
 
 | Email | Password | Role |
 |-------|----------|------|
-| `admin@dubiken.com` | `Dubiken123!` | admin |
-| `buyer@test.com` | `Dubiken123!` | buyer |
+| `admin@dubicolt.com` | `Dubicolt123!` | admin |
+| `buyer@test.com` | `Dubicolt123!` | buyer |
 
-## Connect the UI
+## MVP API endpoints
 
-In `dubiken/.env.local`:
+| Area | Endpoints |
+|------|-----------|
+| Auth | `POST /api/auth/register`, `login`, `GET /api/auth/profile` |
+| Vehicles | `POST/GET/PUT/DELETE /api/vehicles` |
+| Products | `POST/GET/PUT /api/products`, `GET /api/products/search` |
+| Inventory | `POST /api/inventory/stock-in`, `stock-out`, `GET /api/inventory` |
+| Cart | `GET/POST/PUT/DELETE /api/cart/items`, `POST /api/cart/checkout` |
+| Orders | `GET /api/orders`, `GET /api/orders/:id` |
+| Payments | `POST /api/payments/mpesa/stk-push`, `POST /api/payments/callback` |
+| Part Requests | `POST/GET /api/part-requests` |
+| Quotations | `POST/GET /api/quotations`, `accept`, `reject` |
+| Suppliers | `POST/GET/PUT /api/suppliers` |
+| Deliveries | `POST/GET /api/deliveries`, `POST /api/deliveries/:id/status` |
+| Reports | `GET /api/reports/dashboard` |
 
-```
-NEXT_PUBLIC_USE_API=true
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1
-```
+## M-Pesa
+
+Without `MPESA_*` env vars, STK push runs in sandbox mode and auto-completes payment for development.
 
 ## Upload API
 
 ```bash
-curl -X POST http://localhost:3001/api/v1/uploads/image \
+curl -X POST http://localhost:3001/api/uploads/image \
   -H "Authorization: Bearer <token>" \
   -F "file=@./photo.jpg"
-# → { "url": "https://<account>.blob.core.windows.net/..." }
 ```
-
-Use returned `url` as `image_url` in category/product create bodies.
-
-## First run
-
-Creates tables (`sync`) and seeds demo data when the database is empty. Re-seed by truncating tables or using a fresh database.

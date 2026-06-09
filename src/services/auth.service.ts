@@ -1,32 +1,32 @@
 import bcrypt from 'bcrypt';
 import { AppError } from '../errors/AppError';
-import { dubikenStore } from '../dubiken/store';
+import { dubicoltStore } from '../dubicolt/store';
 import { signTokens } from '../middlewares/auth.middleware';
-import type { DubikenUser } from '../dubiken/types';
+import type { DubicoltUser } from '../dubicolt/types';
 
 export class AuthService {
   async login(email: string, password: string) {
-    const user = await dubikenStore.findUserByEmail(email);
+    const user = await dubicoltStore.findUserByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       throw new AppError(401, 'invalid_credentials', 'Invalid email or password');
     }
-    return { ...signTokens(user), user: dubikenStore.toPublicUser(user) };
+    return { ...signTokens(user), user: dubicoltStore.toPublicUser(user) };
   }
 
   async register(data: { name: string; email: string; password: string }) {
-    if (await dubikenStore.findUserByEmail(data.email)) {
+    if (await dubicoltStore.findUserByEmail(data.email)) {
       throw new AppError(400, 'email_exists', 'Account already exists with this email');
     }
-    const user = await dubikenStore.createUser({
+    const user = await dubicoltStore.createUser({
       email: data.email,
       password: data.password,
       name: data.name,
     });
-    return { ...signTokens(user), user: dubikenStore.toPublicUser(user) };
+    return { ...signTokens(user), user: dubicoltStore.toPublicUser(user) };
   }
 
-  me(user: DubikenUser) {
-    return dubikenStore.toPublicUser(user);
+  me(user: DubicoltUser) {
+    return dubicoltStore.toPublicUser(user);
   }
 }
 

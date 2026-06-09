@@ -42,6 +42,16 @@ __decorate([
     __metadata("design:type", String)
 ], Product.prototype, "brand", void 0);
 __decorate([
+    (0, sequelize_typescript_1.AllowNull)(true),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
+    __metadata("design:type", String)
+], Product.prototype, "oem_number", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Default)([]),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.JSONB),
+    __metadata("design:type", Array)
+], Product.prototype, "compatible_vehicles", void 0);
+__decorate([
     (0, sequelize_typescript_1.AllowNull)(false),
     (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
     __metadata("design:type", String)

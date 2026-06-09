@@ -1,17 +1,17 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import { dubikenStore } from '../dubiken/store';
-import type { DubikenUser } from '../dubiken/types';
+import { dubicoltStore } from '../dubicolt/store';
+import type { DubicoltUser } from '../dubicolt/types';
 import { AppError } from '../errors/AppError';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dubiken-dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'dubicolt-dev-secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 export interface AuthRequest extends Request {
-  user?: DubikenUser;
+  user?: DubicoltUser;
 }
 
-export function signTokens(user: DubikenUser) {
+export function signTokens(user: DubicoltUser) {
   const accessOpts: SignOptions = { expiresIn: '1h' };
   const refreshOpts: SignOptions = { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] };
 
@@ -37,7 +37,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const user = await dubikenStore.getUser(decoded.userId);
+    const user = await dubicoltStore.getUser(decoded.userId);
     if (!user) {
       next(new AppError(401, 'unauthorized', 'Invalid user'));
       return;

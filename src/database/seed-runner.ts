@@ -1,24 +1,19 @@
 import bcrypt from 'bcrypt';
 import { User } from './models/User';
-import { Category } from './models/Category';
 import { Product } from './models/Product';
-import { SourcingRequest } from './models/SourcingRequest';
-import { SourcingQuote } from './models/SourcingQuote';
-import { Shipment } from './models/Shipment';
-import { MarketplaceOrder } from './models/MarketplaceOrder';
-import { AdminSourcingOrder } from './models/AdminSourcingOrder';
-import * as seed from '../dubiken/seed';
-import { sid } from './seed-ids';
+import * as dubicoltSeed from '../dubicolt/seed';
+import { InventoryRecord } from './models/InventoryRecord';
+import { Supplier } from './models/Supplier';
 
 export async function seedDatabaseIfEmpty(): Promise<void> {
   const count = await User.count();
   if (count > 0) return;
 
-  const passwordHash = await bcrypt.hash(seed.DEFAULT_PASSWORD, 10);
+  const passwordHash = await bcrypt.hash(dubicoltSeed.DEFAULT_PASSWORD, 10);
 
-  for (const u of seed.SEED_USERS) {
+  for (const u of dubicoltSeed.SEED_USERS) {
     await User.create({
-      id: sid.user(u.id),
+      id: u.id,
       email: u.email,
       name: u.name,
       company: u.company,
@@ -28,201 +23,59 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
     });
   }
 
-  for (const c of seed.adminCategories) {
-    await Category.create({
-      id: sid.category(c.id),
-      name: c.name,
-      description: c.description,
-      origins: c.origins,
-      image_url: c.image_url,
-      status: c.status,
-      trend: c.trend,
-      trend_variant: c.trend_variant,
-      total_skus: c.total_skus,
-      vendors: c.vendors,
-    });
+  await seedDubicoltMvpCatalog();
+  console.log('Seeded Dubicolt Automotive database (users, products, suppliers, inventory)');
+}
+
+export async function seedDubicoltMvpCatalog(): Promise<void> {
+  for (const s of dubicoltSeed.SEED_SUPPLIERS) {
+    const exists = await Supplier.findOne({ where: { name: s.name } });
+    if (!exists) await Supplier.create(s);
   }
 
-  const productIdBySku = new Map<string, string>();
-
-  for (const p of seed.products) {
-    const row = await Product.create({
-      id: sid.product(p.id),
-      sku: p.sku,
-      name: p.name,
-      description: p.description,
-      category: 'Renewable Energy',
-      origin: p.origin,
-      price_usd: p.price,
-      price_kes: p.price_kes,
-      original_price: p.original_price,
-      compare_at_price_kes: p.compare_at_price_kes,
-      image_url: p.image_url,
-      images: p.images,
-      specs: p.specs,
-      currency_ke: p.currency_ke,
-      currency_ae: p.currency_ae,
-      stock: 100,
-      low_stock: false,
-      status: 'published',
-      on_marketplace: true,
-      marketplace_cta: 'cart',
-      vendor: 'Dubiken',
-    });
-    productIdBySku.set(p.sku, row.id);
-  }
-
-  for (const mp of seed.marketplaceProducts) {
-    const product = await Product.findByPk(sid.product(mp.product_id));
-    if (product) {
-      await product.update({
+  for (const p of dubicoltSeed.SEED_PRODUCTS) {
+    const existing = await Product.findOne({ where: { sku: p.sku } });
+    if (existing) {
+      await existing.update({
+        name: p.title,
+        description: p.description,
+        category: p.category,
+        brand: p.brand,
+        oem_number: p.oemNumber,
+        compatible_vehicles: p.compatibleVehicles,
+        price_kes: p.sellingPrice,
+        price_usd: p.sellingPrice / 130,
+        image_url: p.imageUrl,
+        stock: p.stock,
         status: 'published',
         on_marketplace: true,
-        vendor: mp.vendor,
-        marketplace_cta: mp.cta,
       });
-    }
-  }
-
-  for (const inv of seed.adminInventoryItems) {
-    const existing = await Product.findOne({ where: { sku: inv.sku } });
-    if (!existing) {
-      await Product.create({
-        sku: inv.sku,
-        name: inv.name,
-        description: inv.name,
-        category: inv.category,
-        origin: inv.origin,
-        price_usd: parseFloat(inv.marketplace_price.replace(/[^0-9.]/g, '')) || 0,
-        image_url: inv.image_url,
-        images: [inv.image_url],
+      const inv = await InventoryRecord.findOne({ where: { product_id: existing.id } });
+      if (inv) await inv.update({ quantity: p.stock });
+      else await InventoryRecord.create({ product_id: existing.id, quantity: p.stock });
+    } else {
+      const row = await Product.create({
+        sku: p.sku,
+        name: p.title,
+        description: p.description,
+        category: p.category,
+        brand: p.brand,
+        oem_number: p.oemNumber,
+        compatible_vehicles: p.compatibleVehicles,
+        price_kes: p.sellingPrice,
+        price_usd: p.sellingPrice / 130,
+        image_url: p.imageUrl,
+        images: [p.imageUrl],
+        origin: 'KE',
         specs: {},
-        stock: inv.stock,
-        low_stock: inv.low_stock,
+        stock: p.stock,
+        low_stock: p.stock < 10,
         status: 'published',
         on_marketplace: true,
         marketplace_cta: 'cart',
-        vendor: 'Dubiken',
+        vendor: p.brand,
       });
+      await InventoryRecord.create({ product_id: row.id, quantity: p.stock });
     }
   }
-
-  for (const sr of seed.adminSourcingRequests) {
-    const extra = seed.adminSourcingDetails[sr.id];
-    const linkedListId = seed.adminUserSourcingMap[sr.id];
-    await SourcingRequest.create({
-      id: sid.sourcing(sr.id),
-      user_id: linkedListId ? sid.user('usr_buyer') : null,
-      request_number: sr.request_number,
-      product_title: sr.product_title,
-      description: sr.description,
-      origin: sr.market,
-      destination: sr.destination,
-      destination_label: sr.destination_label,
-      status: sr.status,
-      market: sr.market,
-      client_name: sr.client_name,
-      client_initials: sr.client_initials,
-      reference_images: sr.reference_images,
-      reference_extra: sr.reference_extra,
-      has_document: sr.has_document ?? false,
-      quantity: extra?.quantity,
-      voltage_range: extra?.voltage_range,
-      budget_total: extra?.budget_total,
-      budget_subtitle: extra?.budget_subtitle,
-      regional_targets: extra?.regional_targets ?? [],
-      requester_location: extra?.requester_location,
-      product_image_url: extra?.product_image_url,
-      user_status: seed.userSourcingDetails[linkedListId ?? '']?.status,
-      status_variant: seed.userSourcingDetails[linkedListId ?? '']?.status_variant,
-    });
-    if (extra?.quotes?.length) {
-      for (const q of extra.quotes) {
-        await SourcingQuote.create({
-          sourcing_request_id: sid.sourcing(sr.id),
-          unit_price: q.unit_price,
-          shipping_cost: q.shipping_cost,
-          lead_time: q.lead_time,
-          shipment: q.shipment,
-          notes: q.notes,
-          official: q.official ?? true,
-        });
-      }
-    }
-  }
-
-  for (const item of seed.userSourcingList) {
-    const requestId = sid.sourcing(item.id);
-    const exists = await SourcingRequest.findOne({ where: { id: requestId } });
-    if (!exists) {
-      const detail = seed.userSourcingDetails[item.id];
-      await SourcingRequest.create({
-        id: requestId,
-        user_id: sid.user('usr_buyer'),
-        request_number: item.request_number,
-        product_title: item.title,
-        description: detail?.description ?? item.title,
-        origin: item.origin,
-        destination: detail?.destination_port ?? '—',
-        status: 'pending',
-        market: item.origin,
-        user_status: item.status,
-        status_variant: item.status_variant,
-        budget_total: item.price,
-        regional_targets: detail?.regional_targets ?? [],
-      });
-    }
-  }
-
-  for (const s of seed.shipments) {
-    await Shipment.create({
-      id: sid.shipment(s.id),
-      tracking_id: s.tracking_id,
-      current_status: s.current_status,
-      origin_city: s.origin_city,
-      destination_city: s.destination_city,
-      vessel: s.vessel,
-      milestones: s.milestones,
-    });
-  }
-
-  for (const o of seed.userMarketplaceOrders) {
-    await MarketplaceOrder.create({
-      id: sid.marketplaceOrder(o.id),
-      user_id: sid.user('usr_buyer'),
-      order_number: o.order_number,
-      tracking_id: (o as { tracking_id?: string }).tracking_id,
-      title: o.title,
-      vendor: o.vendor,
-      origin_flag: o.origin_flag,
-      image_url: o.image_url,
-      status: o.status,
-      status_icon: o.status_icon,
-      progress_step: o.progress_step,
-      price_kes: o.price_kes,
-      price_secondary: o.price_secondary,
-      date_label: o.date_label,
-      date_value: o.date_value,
-      primary_action: o.primary_action,
-      secondary_action: o.secondary_action,
-      primary_style: o.primary_style,
-    });
-  }
-
-  for (const o of seed.adminSourcingOrders) {
-    await AdminSourcingOrder.create({
-      id: sid.adminOrder(o.id),
-      order_number: o.order_number,
-      customer_name: o.customer_name,
-      customer_detail: o.customer_detail,
-      route: o.route,
-      estimated_value: o.estimated_value,
-      status: o.status,
-      status_variant: o.status_variant,
-      primary_action: o.primary_action,
-      secondary_action: o.secondary_action,
-    });
-  }
-
-  console.log('Seeded Dubiken database (users, products, sourcing, shipments, orders)');
 }

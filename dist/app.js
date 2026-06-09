@@ -9,7 +9,7 @@ const index_1 = __importDefault(require("./routes/index"));
 const error_middleware_1 = require("./middlewares/error.middleware");
 const http_1 = __importDefault(require("http"));
 const cors_1 = __importDefault(require("cors"));
-const store_1 = require("./dubiken/store");
+const store_1 = require("./dubicolt/store");
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
 const PORT = process.env.PORT || 3001;
@@ -19,16 +19,16 @@ app.use((0, cors_1.default)({
 }));
 app.use(express_1.default.json());
 app.get('/', (_req, res) => {
-    res.json({ message: 'Dubiken API', version: '1.0', base: '/api/v1' });
+    res.json({ message: 'Dubicolt Automotive API', version: '1.0', base: '/api' });
 });
-app.use('/api/v1', index_1.default);
+app.use('/api', index_1.default);
 app.use(error_middleware_1.notFoundHandler);
 app.use(error_middleware_1.errorHandler);
 async function startServer() {
     try {
-        await (0, store_1.initDubikenStore)();
-        console.log('Seed users: admin@dubiken.com / buyer@test.com (password: Dubiken123!)');
-        server.listen(PORT, () => console.log(`Dubiken API running on http://localhost:${PORT}/api/v1`));
+        await (0, store_1.initDubicoltStore)();
+        console.log('Seed users: admin@dubicolt.com / buyer@test.com (password: Dubicolt123!)');
+        server.listen(PORT, () => console.log(`Dubicolt Automotive API running on http://localhost:${PORT}/api`));
     }
     catch (error) {
         console.error('Failed to start server:', error);

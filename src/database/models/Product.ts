@@ -24,6 +24,19 @@ export class Product extends Model {
   @Column(DataType.STRING)
   brand?: string;
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  oem_number?: string;
+
+  @Default([])
+  @Column(DataType.JSONB)
+  compatible_vehicles!: {
+    make: string;
+    model: string;
+    yearFrom: number;
+    yearTo: number;
+  }[];
+
   @AllowNull(false)
   @Column(DataType.STRING)
   category!: string;

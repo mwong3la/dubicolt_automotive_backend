@@ -1,16 +1,17 @@
 import { Sequelize, SequelizeOptions } from 'sequelize-typescript';
 import config from './config/config';
 import { User } from './models/User';
-import { Category } from './models/Category';
 import { Product } from './models/Product';
 import { CartItem } from './models/CartItem';
-import { CheckoutSession } from './models/CheckoutSession';
-import { SourcingRequest } from './models/SourcingRequest';
-import { SourcingQuote } from './models/SourcingQuote';
-import { SourcingAttachment } from './models/SourcingAttachment';
-import { Shipment } from './models/Shipment';
-import { MarketplaceOrder } from './models/MarketplaceOrder';
-import { AdminSourcingOrder } from './models/AdminSourcingOrder';
+import { Vehicle } from './models/Vehicle';
+import { InventoryRecord } from './models/InventoryRecord';
+import { Order } from './models/Order';
+import { OrderItem } from './models/OrderItem';
+import { Payment } from './models/Payment';
+import { PartRequest } from './models/PartRequest';
+import { Quotation } from './models/Quotation';
+import { Supplier } from './models/Supplier';
+import { Delivery } from './models/Delivery';
 import { seedDatabaseIfEmpty } from './seed-runner';
 
 const env = process.env.NODE_ENV || 'development';
@@ -32,16 +33,17 @@ const sequelizeOptions: SequelizeOptions = {
   dialect: 'postgres',
   models: [
     User,
-    Category,
     Product,
     CartItem,
-    CheckoutSession,
-    SourcingRequest,
-    SourcingQuote,
-    SourcingAttachment,
-    Shipment,
-    MarketplaceOrder,
-    AdminSourcingOrder,
+    Vehicle,
+    InventoryRecord,
+    Order,
+    OrderItem,
+    Payment,
+    PartRequest,
+    Quotation,
+    Supplier,
+    Delivery,
   ],
   logging: process.env.DB_LOGGING === 'true' ? console.log : false,
 };
@@ -58,7 +60,7 @@ export async function initializeDatabase(): Promise<void> {
       console.error(
         '\nPostgreSQL connection failed. For remote hosts, SSL is enabled automatically.\n' +
           'Also check:\n' +
-          '  • DB_HOST, DB_USER, DB_PASSWORD, DB_NAME in .env (use a Dubiken database, e.g. dubiken)\n' +
+          '  • DB_HOST, DB_USER, DB_PASSWORD, DB_NAME in .env (e.g. dubicolt_automotive)\n' +
           '  • Server firewall / pg_hba allows your IP\n' +
           '  • DB_SSL_REJECT_UNAUTHORIZED=false for Azure dev if cert errors persist\n',
       );
