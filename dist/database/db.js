@@ -20,6 +20,7 @@ const PartRequest_1 = require("./models/PartRequest");
 const Quotation_1 = require("./models/Quotation");
 const Supplier_1 = require("./models/Supplier");
 const Delivery_1 = require("./models/Delivery");
+const Category_1 = require("./models/Category");
 const seed_runner_1 = require("./seed-runner");
 const env = process.env.NODE_ENV || 'development';
 const envConfig = config_1.default[env];
@@ -45,6 +46,7 @@ const sequelizeOptions = {
         Quotation_1.Quotation,
         Supplier_1.Supplier,
         Delivery_1.Delivery,
+        Category_1.Category,
     ],
     logging: process.env.DB_LOGGING === 'true' ? console.log : false,
 };

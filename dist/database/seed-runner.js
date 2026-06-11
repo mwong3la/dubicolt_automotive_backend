@@ -41,9 +41,13 @@ exports.seedDubicoltCatalog = seedDubicoltCatalog;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const User_1 = require("./models/User");
 const Product_1 = require("./models/Product");
+const Category_1 = require("./models/Category");
 const dubicoltSeed = __importStar(require("../dubicolt/seed"));
 const InventoryRecord_1 = require("./models/InventoryRecord");
 const Supplier_1 = require("./models/Supplier");
+function slugify(name) {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
 async function seedDatabaseIfEmpty() {
     const count = await User_1.User.count();
     if (count > 0)
@@ -63,7 +67,28 @@ async function seedDatabaseIfEmpty() {
     await seedDubicoltCatalog();
     console.log('Seeded Dubicolt Automotive database (users, products, suppliers, inventory)');
 }
+async function seedCategoriesFromProducts() {
+    const seen = new Set();
+    for (const p of dubicoltSeed.SEED_PRODUCTS) {
+        if (seen.has(p.category))
+            continue;
+        seen.add(p.category);
+        const slug = slugify(p.category);
+        const exists = await Category_1.Category.findOne({ where: { name: p.category } });
+        if (!exists) {
+            await Category_1.Category.create({
+                name: p.category,
+                slug,
+                description: '',
+                image_url: p.imageUrl,
+                status: 'published',
+                origins: ['KE'],
+            });
+        }
+    }
+}
 async function seedDubicoltCatalog() {
+    await seedCategoriesFromProducts();
     for (const s of dubicoltSeed.SEED_SUPPLIERS) {
         const exists = await Supplier_1.Supplier.findOne({ where: { name: s.name } });
         if (!exists)

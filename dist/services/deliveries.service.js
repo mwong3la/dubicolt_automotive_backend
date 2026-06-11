@@ -6,8 +6,8 @@ class DeliveriesService {
     create(data) {
         return store_1.dubicoltStore.createDelivery(data);
     }
-    updateStatus(id, status) {
-        return store_1.dubicoltStore.updateDeliveryStatus(id, status);
+    updateStatus(id, status, proofUrl) {
+        return store_1.dubicoltStore.updateDeliveryStatus(id, status, proofUrl);
     }
     get(id) {
         return store_1.dubicoltStore.getDelivery(id);

@@ -1,9 +1,14 @@
 import bcrypt from 'bcrypt';
 import { User } from './models/User';
 import { Product } from './models/Product';
+import { Category } from './models/Category';
 import * as dubicoltSeed from '../dubicolt/seed';
 import { InventoryRecord } from './models/InventoryRecord';
 import { Supplier } from './models/Supplier';
+
+function slugify(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
 
 export async function seedDatabaseIfEmpty(): Promise<void> {
   const count = await User.count();
@@ -27,7 +32,29 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
   console.log('Seeded Dubicolt Automotive database (users, products, suppliers, inventory)');
 }
 
+async function seedCategoriesFromProducts(): Promise<void> {
+  const seen = new Set<string>();
+  for (const p of dubicoltSeed.SEED_PRODUCTS) {
+    if (seen.has(p.category)) continue;
+    seen.add(p.category);
+    const slug = slugify(p.category);
+    const exists = await Category.findOne({ where: { name: p.category } });
+    if (!exists) {
+      await Category.create({
+        name: p.category,
+        slug,
+        description: '',
+        image_url: p.imageUrl,
+        status: 'published',
+        origins: ['KE'],
+      });
+    }
+  }
+}
+
 export async function seedDubicoltCatalog(): Promise<void> {
+  await seedCategoriesFromProducts();
+
   for (const s of dubicoltSeed.SEED_SUPPLIERS) {
     const exists = await Supplier.findOne({ where: { name: s.name } });
     if (!exists) await Supplier.create(s);

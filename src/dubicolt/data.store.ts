@@ -14,6 +14,7 @@ import { PartRequest } from '../database/models/PartRequest';
 import { Quotation } from '../database/models/Quotation';
 import { Supplier } from '../database/models/Supplier';
 import { Delivery } from '../database/models/Delivery';
+import { Category } from '../database/models/Category';
 import { seedDubicoltCatalog } from '../database/seed-runner';
 import type { DubicoltUser, ProductPayload } from './types';
 
@@ -39,6 +40,14 @@ function toDomainUser(u: User): DubicoltUser {
   };
 }
 
+function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 function productToDto(p: Product, qty?: number) {
   return {
     id: p.id,
@@ -50,6 +59,8 @@ function productToDto(p: Product, qty?: number) {
     oemNumber: p.oem_number ?? '',
     sellingPrice: productSellingPrice(p),
     imageUrl: p.image_url,
+    origin: p.origin ?? 'KE',
+    status: p.status,
     compatibleVehicles: p.compatible_vehicles ?? [],
     stock: qty ?? p.stock,
   };
@@ -87,6 +98,7 @@ export class DataStore {
   async init(): Promise<void> {
     await seedDubicoltCatalog();
     await this.syncInventoryFromProducts();
+    await this.syncCategoriesFromProducts();
   }
 
   private async syncInventoryFromProducts() {
@@ -300,13 +312,21 @@ export class DataStore {
       include: [Product],
       order: [['updated_at', 'DESC']],
     });
-    return records.map((r) => ({
-      productId: r.product_id,
-      title: r.product?.name ?? '',
-      sku: r.product?.sku ?? '',
-      quantity: r.quantity,
-      lowStock: r.quantity > 0 && r.quantity < LOW_STOCK_THRESHOLD,
-    }));
+    return records.map((r) => {
+      const p = r.product;
+      return {
+        productId: r.product_id,
+        title: p?.name ?? '',
+        sku: p?.sku ?? '',
+        quantity: r.quantity,
+        lowStock: r.quantity > 0 && r.quantity < LOW_STOCK_THRESHOLD,
+        category: p?.category ?? '',
+        origin: p?.origin ?? 'KE',
+        imageUrl: p?.image_url ?? '',
+        sellingPrice: p ? productSellingPrice(p) : 0,
+        status: p?.status ?? 'draft',
+      };
+    });
   }
 
   // ── Cart ──────────────────────────────────────────────────────────────────
@@ -412,8 +432,16 @@ export class DataStore {
 
   async listOrders(userId?: string) {
     const where = userId ? { user_id: userId } : {};
-    const rows = await Order.findAll({ where, order: [['created_at', 'DESC']] });
-    return rows.map((o) => ({ id: o.order_number, status: o.status, total: o.total }));
+    const rows = await Order.findAll({
+      where,
+      include: [
+        { model: User, attributes: ['name', 'email'] },
+        { model: OrderItem, include: [Product] },
+        Delivery,
+      ],
+      order: [['created_at', 'DESC']],
+    });
+    return rows.map((o) => this.orderSummaryToDto(o));
   }
 
   async getOrder(userId: string | undefined, orderId: string) {
@@ -423,21 +451,93 @@ export class DataStore {
     if (userId) where.user_id = userId;
     const order = await Order.findOne({
       where: where as never,
-      include: [OrderItem, Delivery],
+      include: [
+        { model: User, attributes: ['name', 'email'] },
+        { model: OrderItem, include: [Product] },
+        Delivery,
+      ],
     });
     if (!order) return null;
+    return this.orderDetailToDto(order);
+  }
+
+  async updateOrderStatus(orderId: string, status: string) {
+    const allowed = [
+      'PENDING_PAYMENT',
+      'PAID',
+      'PROCESSING',
+      'DISPATCHED',
+      'IN_TRANSIT',
+      'DELIVERED',
+      'CANCELLED',
+    ];
+    const normalized = status.toUpperCase().replace(/\s+/g, '_');
+    if (!allowed.includes(normalized)) {
+      throw new AppError(400, 'invalid_status', 'Invalid order status');
+    }
+    const order = await Order.findOne({
+      where: { [Op.or]: [{ order_number: orderId }, { id: orderId }] } as never,
+      include: [Delivery, { model: OrderItem, include: [Product] }, User],
+    });
+    if (!order) return null;
+    await order.update({ status: normalized as Order['status'] });
+
+    const delivery = order.deliveries?.[0];
+    if (delivery) {
+      const deliveryStatus =
+        normalized === 'DELIVERED'
+          ? 'DELIVERED'
+          : normalized === 'IN_TRANSIT'
+            ? 'IN_TRANSIT'
+            : normalized === 'DISPATCHED'
+              ? 'DISPATCHED'
+              : 'PROCESSING';
+      await delivery.update({ status: deliveryStatus as Delivery['status'] });
+    }
+
+    return this.orderDetailToDto(order);
+  }
+
+  private orderSummaryToDto(o: Order) {
+    const firstItem = o.items?.[0];
+    const delivery = o.deliveries?.[0];
+    return {
+      id: o.order_number,
+      status: o.status,
+      total: o.total,
+      createdAt: o.createdAt,
+      customerName: o.user?.name,
+      customerEmail: o.user?.email,
+      itemTitle: firstItem?.title,
+      itemImageUrl: firstItem?.product?.image_url,
+      deliveryId: delivery?.id,
+      deliveryStatus: delivery?.status,
+    };
+  }
+
+  private orderDetailToDto(order: Order) {
     return {
       id: order.order_number,
       status: order.status,
       total: order.total,
+      createdAt: order.createdAt,
+      customerName: order.user?.name,
+      customerEmail: order.user?.email,
       deliveryMethod: order.delivery_method,
       deliveryAddress: order.delivery_address,
       items: (order.items ?? []).map((i) => ({
         title: i.title,
         quantity: i.quantity,
         unitPrice: i.unit_price,
+        imageUrl: i.product?.image_url,
+        productId: i.product_id,
       })),
-      deliveries: (order.deliveries ?? []).map((d) => ({ id: d.id, status: d.status })),
+      deliveries: (order.deliveries ?? []).map((d) => ({
+        id: d.id,
+        status: d.status,
+        notes: d.notes,
+        proofUrl: d.proof_url,
+      })),
     };
   }
 
@@ -547,8 +647,12 @@ export class DataStore {
 
   async listPartRequests(userId?: string) {
     const where = userId ? { user_id: userId } : {};
-    const rows = await PartRequest.findAll({ where, order: [['created_at', 'DESC']] });
-    return rows.map((r) => this.partRequestToDto(r));
+    const rows = await PartRequest.findAll({
+      where,
+      include: userId ? [] : [{ model: User, attributes: ['name', 'email'] }],
+      order: [['created_at', 'DESC']],
+    });
+    return rows.map((r) => this.partRequestToDto(r, !userId));
   }
 
   async getPartRequest(id: string, userId?: string) {
@@ -567,7 +671,7 @@ export class DataStore {
     };
   }
 
-  private partRequestToDto(r: PartRequest) {
+  private partRequestToDto(r: PartRequest, includeCustomer = false) {
     return {
       id: r.request_number,
       requestId: r.id,
@@ -577,6 +681,9 @@ export class DataStore {
       vin: r.vin,
       photoUrls: r.photo_urls,
       status: r.status,
+      createdAt: r.createdAt,
+      customerName: includeCustomer ? r.user?.name : undefined,
+      customerEmail: includeCustomer ? r.user?.email : undefined,
     };
   }
 
@@ -699,13 +806,16 @@ export class DataStore {
     return this.deliveryToDto(delivery);
   }
 
-  async updateDeliveryStatus(id: string, status: string) {
+  async updateDeliveryStatus(id: string, status: string, proofUrl?: string) {
     const allowed = ['PROCESSING', 'DISPATCHED', 'IN_TRANSIT', 'DELIVERED'];
     const normalized = status.toUpperCase();
     if (!allowed.includes(normalized)) throw new AppError(400, 'invalid_status', 'Invalid delivery status');
     const delivery = await Delivery.findByPk(id, { include: [Order] });
     if (!delivery) throw new AppError(404, 'not_found', 'Delivery not found');
-    await delivery.update({ status: normalized as Delivery['status'] });
+    await delivery.update({
+      status: normalized as Delivery['status'],
+      ...(proofUrl ? { proof_url: proofUrl } : {}),
+    });
     if (delivery.order) {
       const orderStatus =
         normalized === 'DELIVERED' ? 'DELIVERED' : normalized === 'IN_TRANSIT' ? 'IN_TRANSIT' : 'PROCESSING';
@@ -724,10 +834,199 @@ export class DataStore {
   }
 
   private deliveryToDto(d: Delivery) {
-    return { id: d.id, orderId: d.order_id, status: d.status, notes: d.notes };
+    return { id: d.id, orderId: d.order_id, status: d.status, notes: d.notes, proofUrl: d.proof_url };
+  }
+
+  async getOrderInvoice(userId: string | undefined, orderId: string) {
+    const order = await this.getOrder(userId, orderId);
+    if (!order) return null;
+    const paid = !['PENDING_PAYMENT', 'CANCELLED'].includes(order.status.toUpperCase());
+    return {
+      orderNumber: order.id,
+      status: order.status,
+      paid,
+      customerName: order.customerName,
+      customerEmail: order.customerEmail,
+      deliveryMethod: order.deliveryMethod,
+      deliveryAddress: order.deliveryAddress,
+      createdAt: order.createdAt,
+      items: order.items,
+      total: order.total,
+      currency: 'KES',
+    };
   }
 
   // ── Reports ───────────────────────────────────────────────────────────────
+
+  // ── Categories ──────────────────────────────────────────────────────────
+
+  async syncCategoriesFromProducts() {
+    const products = await Product.findAll();
+    const names = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
+    for (const name of names) {
+      const slug = slugify(name);
+      const exists = await Category.findOne({ where: { [Op.or]: [{ name }, { slug }] } });
+      if (!exists) {
+        const sample = products.find((p) => p.category === name);
+        await Category.create({
+          name,
+          slug,
+          description: '',
+          image_url: sample?.image_url ?? '',
+          status: 'published',
+          origins: ['KE'],
+        });
+      }
+    }
+  }
+
+  private async categoryToDto(cat: Category) {
+    const productCount = await Product.count({ where: { category: cat.name } });
+    return {
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      description: cat.description,
+      imageUrl: cat.image_url,
+      status: cat.status,
+      origins: cat.origins ?? ['KE'],
+      productCount,
+    };
+  }
+
+  async listCategories() {
+    const rows = await Category.findAll({ order: [['name', 'ASC']] });
+    const result = [];
+    for (const cat of rows) {
+      result.push(await this.categoryToDto(cat));
+    }
+    return result;
+  }
+
+  async getCategory(id: string) {
+    const cat = await Category.findOne({
+      where: { [Op.or]: [{ id }, { slug: id }] } as never,
+    });
+    if (!cat) return null;
+    return this.categoryToDto(cat);
+  }
+
+  async createCategory(data: {
+    name: string;
+    description?: string;
+    imageUrl?: string;
+    status?: 'draft' | 'published';
+    origins?: string[];
+  }) {
+    const name = data.name.trim();
+    if (!name) throw new AppError(400, 'validation_error', 'Category name is required');
+    const slug = slugify(name);
+    const existing = await Category.findOne({ where: { [Op.or]: [{ name }, { slug }] } });
+    if (existing) throw new AppError(409, 'duplicate', 'Category already exists');
+    const row = await Category.create({
+      name,
+      slug,
+      description: data.description?.trim() ?? '',
+      image_url: data.imageUrl ?? '',
+      status: data.status ?? 'published',
+      origins: data.origins?.length ? data.origins : ['KE'],
+    });
+    return this.categoryToDto(row);
+  }
+
+  async updateCategory(
+    id: string,
+    data: Partial<{
+      name: string;
+      description: string;
+      imageUrl: string;
+      status: 'draft' | 'published';
+      origins: string[];
+    }>,
+  ) {
+    const row = await Category.findOne({
+      where: { [Op.or]: [{ id }, { slug: id }] } as never,
+    });
+    if (!row) return null;
+
+    const updates: Record<string, unknown> = {};
+    if (data.name !== undefined) {
+      const name = data.name.trim();
+      updates.name = name;
+      updates.slug = slugify(name);
+    }
+    if (data.description !== undefined) updates.description = data.description;
+    if (data.imageUrl !== undefined) updates.image_url = data.imageUrl;
+    if (data.status !== undefined) updates.status = data.status;
+    if (data.origins !== undefined) updates.origins = data.origins;
+
+    const oldName = row.name;
+    await row.update(updates);
+    if (data.name && data.name !== oldName) {
+      await Product.update({ category: row.name }, { where: { category: oldName } });
+    }
+    return this.categoryToDto(row);
+  }
+
+  async deleteCategory(id: string) {
+    const row = await Category.findOne({
+      where: { [Op.or]: [{ id }, { slug: id }] } as never,
+    });
+    if (!row) return false;
+    const inUse = await Product.count({ where: { category: row.name } });
+    if (inUse > 0) {
+      throw new AppError(400, 'category_in_use', 'Cannot delete a category that still has products');
+    }
+    await row.destroy();
+    return true;
+  }
+
+  // ── Reports ───────────────────────────────────────────────────────────────
+
+  async getAnalytics() {
+    const paidStatuses = ['PAID', 'PROCESSING', 'DISPATCHED', 'IN_TRANSIT', 'DELIVERED'];
+    const orders = await Order.findAll({
+      where: { status: { [Op.in]: paidStatuses } },
+      include: [{ model: OrderItem, include: [Product] }],
+      order: [['created_at', 'ASC']],
+    });
+
+    const now = new Date();
+    const weeks: { week: string; revenue: number; orders: number }[] = [];
+    for (let i = 3; i >= 0; i--) {
+      const start = new Date(now);
+      start.setDate(start.getDate() - (i + 1) * 7);
+      const end = new Date(now);
+      end.setDate(end.getDate() - i * 7);
+      const label = `W${4 - i}`;
+      const inWeek = orders.filter((o) => {
+        const d = new Date(o.createdAt);
+        return d >= start && d < end;
+      });
+      weeks.push({
+        week: label,
+        revenue: inWeek.reduce((s, o) => s + o.total, 0),
+        orders: inWeek.length,
+      });
+    }
+
+    const categoryTotals = new Map<string, number>();
+    for (const order of orders) {
+      for (const item of order.items ?? []) {
+        const cat = item.product?.category ?? 'Other';
+        categoryTotals.set(cat, (categoryTotals.get(cat) ?? 0) + item.unit_price * item.quantity);
+      }
+    }
+    const sorted = [...categoryTotals.entries()].sort((a, b) => b[1] - a[1]);
+    const max = sorted[0]?.[1] ?? 1;
+    const topCategories = sorted.slice(0, 6).map(([name, value]) => ({
+      name,
+      value,
+      pct: Math.round((value / max) * 100),
+    }));
+
+    return { weeklySales: weeks, topCategories };
+  }
 
   async getDashboard() {
     const today = new Date();
