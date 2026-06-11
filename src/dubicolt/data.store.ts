@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { Op, type Transaction } from 'sequelize';
+import { Op, type Transaction, type WhereOptions } from 'sequelize';
 import { AppError } from '../errors/AppError';
 import { db } from '../database/db';
 import { User } from '../database/models/User';
@@ -48,7 +48,33 @@ function slugify(name: string) {
     .replace(/^-|-$/g, '');
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Lookup by order_number; only match UUID id when the param is a valid UUID. */
+function orderIdWhere(orderId: string): Record<string, unknown> {
+  if (UUID_RE.test(orderId)) {
+    return { [Op.or]: [{ order_number: orderId }, { id: orderId }] };
+  }
+  return { order_number: orderId };
+}
+
+/** Lookup by request_number; only match UUID id when the param is a valid UUID. */
+function partRequestIdWhere(requestId: string): Record<string, unknown> {
+  if (UUID_RE.test(requestId)) {
+    return { [Op.or]: [{ request_number: requestId }, { id: requestId }] };
+  }
+  return { request_number: requestId };
+}
+
+function productImages(p: Product): string[] {
+  const list = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+  if (list.length > 0) return list;
+  return p.image_url ? [p.image_url] : [];
+}
+
 function productToDto(p: Product, qty?: number) {
+  const images = productImages(p);
   return {
     id: p.id,
     title: p.name,
@@ -58,7 +84,8 @@ function productToDto(p: Product, qty?: number) {
     brand: p.brand ?? p.vendor ?? '',
     oemNumber: p.oem_number ?? '',
     sellingPrice: productSellingPrice(p),
-    imageUrl: p.image_url,
+    imageUrl: images[0] ?? p.image_url,
+    images,
     origin: p.origin ?? 'KE',
     status: p.status,
     compatibleVehicles: p.compatible_vehicles ?? [],
@@ -118,12 +145,22 @@ export class DataStore {
 
   async findUserByEmail(email: string): Promise<DubicoltUser | undefined> {
     const u = await User.findOne({ where: { email: { [Op.iLike]: email } } });
-    return u ? toDomainUser(u) : undefined;
+    if (!u || !u.is_active) return undefined;
+    return toDomainUser(u);
+  }
+
+  async findUserRowByEmail(email: string): Promise<User | null> {
+    return User.findOne({ where: { email: { [Op.iLike]: email } } });
   }
 
   async getUser(id: string): Promise<DubicoltUser | undefined> {
     const u = await User.findByPk(id);
-    return u ? toDomainUser(u) : undefined;
+    if (!u || !u.is_active) return undefined;
+    return toDomainUser(u);
+  }
+
+  async getUserById(id: string): Promise<User | null> {
+    return User.findByPk(id);
   }
 
   async createUser(data: { email: string; password: string; name: string }): Promise<DubicoltUser> {
@@ -138,8 +175,130 @@ export class DataStore {
     return toDomainUser(row);
   }
 
+  async listUsers(query?: {
+    search?: string;
+    role?: DubicoltUser['role'];
+    page?: number;
+    pageSize?: number;
+  }) {
+    const page = Math.max(1, query?.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, query?.pageSize ?? 20));
+    const searchTerm = query?.search?.trim();
+    const where: WhereOptions = {
+      ...(query?.role ? { role: query.role } : {}),
+      ...(searchTerm
+        ? {
+            [Op.or]: [
+              { name: { [Op.iLike]: `%${searchTerm}%` } },
+              { email: { [Op.iLike]: `%${searchTerm}%` } },
+              { company: { [Op.iLike]: `%${searchTerm}%` } },
+            ],
+          }
+        : {}),
+    };
+    const { rows, count } = await User.findAndCountAll({
+      where,
+      order: [['created_at', 'DESC']],
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    });
+    return {
+      data: rows.map((row) => this.toAdminUser(row)),
+      meta: { page, page_size: pageSize, total: count },
+    };
+  }
+
+  async createUserAdmin(data: {
+    name: string;
+    email: string;
+    password: string;
+    company?: string;
+    role?: DubicoltUser['role'];
+  }) {
+    const existing = await User.findOne({ where: { email: { [Op.iLike]: data.email.trim() } } });
+    if (existing) {
+      throw new AppError(400, 'email_exists', 'Account already exists with this email');
+    }
+    const row = await User.create({
+      email: data.email.trim(),
+      password: await bcrypt.hash(data.password, 10),
+      name: data.name.trim(),
+      company: (data.company ?? '').trim(),
+      role: data.role ?? 'buyer',
+      is_active: true,
+    });
+    return this.toAdminUser(row);
+  }
+
+  async updateUser(
+    id: string,
+    data: Partial<{
+      name: string;
+      email: string;
+      company: string;
+      role: DubicoltUser['role'];
+      is_active: boolean;
+      password: string;
+    }>,
+  ) {
+    const row = await User.findByPk(id);
+    if (!row) return null;
+
+    if (data.email !== undefined) {
+      const email = data.email.trim();
+      const existing = await User.findOne({ where: { email: { [Op.iLike]: email } } });
+      if (existing && existing.id !== id) {
+        throw new AppError(400, 'email_exists', 'Account already exists with this email');
+      }
+      row.email = email;
+    }
+    if (data.name !== undefined) row.name = data.name.trim();
+    if (data.company !== undefined) row.company = data.company.trim();
+    if (data.role !== undefined) row.role = data.role;
+    if (data.is_active !== undefined) row.is_active = data.is_active;
+    if (data.password) row.password = await bcrypt.hash(data.password, 10);
+
+    await row.save();
+    return this.toAdminUser(row);
+  }
+
+  async updateUserProfile(
+    userId: string,
+    data: Partial<{ name: string; company: string }>,
+  ) {
+    const row = await User.findByPk(userId);
+    if (!row || !row.is_active) return null;
+    if (data.name !== undefined) row.name = data.name.trim();
+    if (data.company !== undefined) row.company = data.company.trim();
+    await row.save();
+    return this.toPublicUser(toDomainUser(row));
+  }
+
+  async changeUserPassword(userId: string, currentPassword: string, newPassword: string) {
+    const row = await User.findByPk(userId);
+    if (!row || !row.is_active) return false;
+    if (!(await bcrypt.compare(currentPassword, row.password))) {
+      throw new AppError(401, 'invalid_credentials', 'Current password is incorrect');
+    }
+    row.password = await bcrypt.hash(newPassword, 10);
+    await row.save();
+    return true;
+  }
+
   toPublicUser(u: DubicoltUser) {
-    return { id: u.id, email: u.email, name: u.name, role: u.role };
+    return { id: u.id, email: u.email, name: u.name, company: u.company, role: u.role };
+  }
+
+  toAdminUser(u: User) {
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      company: u.company,
+      role: u.role,
+      is_active: u.is_active,
+      created_at: u.createdAt?.toISOString() ?? null,
+    };
   }
 
   // ── Vehicles ────────────────────────────────────────────────────────────
@@ -173,6 +332,8 @@ export class DataStore {
   // ── Products ────────────────────────────────────────────────────────────
 
   async createProduct(data: ProductPayload) {
+    const images =
+      data.images?.filter(Boolean).length ? data.images!.filter(Boolean) : [data.imageUrl];
     const row = await Product.create({
       sku: data.sku,
       name: data.title,
@@ -183,8 +344,8 @@ export class DataStore {
       compatible_vehicles: data.compatibleVehicles ?? [],
       price_kes: data.sellingPrice,
       price_usd: data.sellingPrice / 130,
-      image_url: data.imageUrl,
-      images: [data.imageUrl],
+      image_url: images[0],
+      images,
       origin: 'KE',
       specs: {},
       stock: 0,
@@ -231,7 +392,14 @@ export class DataStore {
       updates.price_kes = data.sellingPrice;
       updates.price_usd = data.sellingPrice / 130;
     }
-    if (data.imageUrl !== undefined) updates.image_url = data.imageUrl;
+    if (data.images !== undefined) {
+      const images = data.images.filter(Boolean);
+      updates.images = images;
+      if (images[0]) updates.image_url = images[0];
+    } else if (data.imageUrl !== undefined) {
+      updates.image_url = data.imageUrl;
+      updates.images = [data.imageUrl];
+    }
     if (data.compatibleVehicles !== undefined) updates.compatible_vehicles = data.compatibleVehicles;
     await row.update(updates);
     const inv = await InventoryRecord.findOne({ where: { product_id: row.id } });
@@ -337,8 +505,10 @@ export class DataStore {
       id: r.id,
       productId: r.product_id,
       title: r.product?.name ?? '',
+      sku: r.product?.sku ?? '',
       quantity: r.quantity,
       unitPrice: r.product ? productSellingPrice(r.product) : 0,
+      imageUrl: r.product?.image_url ?? '',
     }));
     const total = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
     return { items, total };
@@ -421,7 +591,6 @@ export class DataStore {
         await syncProductStock(item.product.id, newQty, transaction);
       }
 
-      await Delivery.create({ order_id: order.id, status: 'PROCESSING' }, { transaction });
       await CartItem.destroy({ where: { user_id: userId }, transaction });
 
       return { orderId: order.order_number, amount: total };
@@ -445,10 +614,10 @@ export class DataStore {
   }
 
   async getOrder(userId: string | undefined, orderId: string) {
-    const where: Record<string, unknown> = {
-      [Op.or]: [{ order_number: orderId }, { id: orderId }],
+    const where = {
+      ...orderIdWhere(orderId),
+      ...(userId ? { user_id: userId } : {}),
     };
-    if (userId) where.user_id = userId;
     const order = await Order.findOne({
       where: where as never,
       include: [
@@ -476,7 +645,7 @@ export class DataStore {
       throw new AppError(400, 'invalid_status', 'Invalid order status');
     }
     const order = await Order.findOne({
-      where: { [Op.or]: [{ order_number: orderId }, { id: orderId }] } as never,
+      where: orderIdWhere(orderId) as never,
       include: [Delivery, { model: OrderItem, include: [Product] }, User],
     });
     if (!order) return null;
@@ -545,7 +714,7 @@ export class DataStore {
 
   async initiateMpesaStkPush(orderId: string, phone: string) {
     const order = await Order.findOne({
-      where: { [Op.or]: [{ order_number: orderId }, { id: orderId }] } as never,
+      where: orderIdWhere(orderId) as never,
     });
     if (!order) throw new AppError(404, 'not_found', 'Order not found');
     if (order.status === 'PAID') throw new AppError(400, 'already_paid', 'Order already paid');
@@ -604,6 +773,56 @@ export class DataStore {
     return { ResultCode: 0, ResultDesc: 'Accepted' };
   }
 
+  async listPayments(userId?: string) {
+    const rows = await Payment.findAll({
+      include: [
+        {
+          model: Order,
+          required: true,
+          ...(userId ? { where: { user_id: userId } } : {}),
+          include: userId ? [] : [{ model: User, attributes: ['name', 'email'] }],
+        },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+    return rows.map((p) => this.paymentToDto(p, !userId));
+  }
+
+  async getPaymentsForOrder(orderId: string, userId?: string) {
+    const order = await Order.findOne({
+      where: orderIdWhere(orderId) as never,
+      include: userId ? [] : [{ model: User, attributes: ['name', 'email'] }],
+    });
+    if (!order) return null;
+    if (userId && order.user_id !== userId) return null;
+    const rows = await Payment.findAll({
+      where: { order_id: order.id },
+      order: [['created_at', 'DESC']],
+    });
+    return rows.map((p) => {
+      (p as Payment & { order?: Order }).order = order;
+      return this.paymentToDto(p, !userId);
+    });
+  }
+
+  private paymentToDto(p: Payment, includeCustomer = false) {
+    const order = p.order;
+    return {
+      id: p.id,
+      orderId: order?.order_number ?? '',
+      orderNumber: order?.order_number ?? '',
+      method: p.method,
+      amount: p.amount,
+      phone: p.phone,
+      status: p.status,
+      mpesaReceiptNumber: p.mpesa_receipt_number,
+      mpesaCheckoutRequestId: p.mpesa_checkout_request_id,
+      createdAt: p.createdAt,
+      customerName: includeCustomer ? order?.user?.name : undefined,
+      customerEmail: includeCustomer ? order?.user?.email : undefined,
+    };
+  }
+
   private async completePayment(
     paymentId: string,
     data: { receiptNumber: string; payload?: Record<string, unknown> },
@@ -617,6 +836,10 @@ export class DataStore {
     });
     if (payment.order) {
       await payment.order.update({ status: 'PAID' });
+      const existing = await Delivery.findOne({ where: { order_id: payment.order.id } });
+      if (!existing) {
+        await Delivery.create({ order_id: payment.order.id, status: 'PROCESSING' });
+      }
     }
   }
 
@@ -657,7 +880,7 @@ export class DataStore {
 
   async getPartRequest(id: string, userId?: string) {
     const where: Record<string, unknown> = {
-      [Op.or]: [{ id }, { request_number: id }],
+      ...partRequestIdWhere(id),
     };
     if (userId) where.user_id = userId;
     const row = await PartRequest.findOne({
@@ -697,7 +920,7 @@ export class DataStore {
     supplierId?: string;
   }) {
     const request = await PartRequest.findOne({
-      where: { [Op.or]: [{ id: data.requestId }, { request_number: data.requestId }] } as never,
+      where: partRequestIdWhere(data.requestId) as never,
     });
     if (!request) throw new AppError(404, 'not_found', 'Part request not found');
 
@@ -799,7 +1022,7 @@ export class DataStore {
 
   async createDelivery(data: { orderId: string; notes?: string }) {
     const order = await Order.findOne({
-      where: { [Op.or]: [{ order_number: data.orderId }, { id: data.orderId }] } as never,
+      where: orderIdWhere(data.orderId) as never,
     });
     if (!order) throw new AppError(404, 'not_found', 'Order not found');
     const delivery = await Delivery.create({ order_id: order.id, status: 'PROCESSING', notes: data.notes });

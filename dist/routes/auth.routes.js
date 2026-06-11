@@ -42,4 +42,6 @@ router.post('/register', authController.register);
 router.post('/logout', authController.logout);
 router.get('/profile', auth_middleware_1.requireAuth, authController.me);
 router.get('/me', auth_middleware_1.requireAuth, authController.me);
+router.patch('/profile', auth_middleware_1.requireAuth, authController.updateProfile);
+router.post('/change-password', auth_middleware_1.requireAuth, authController.changePassword);
 exports.default = router;

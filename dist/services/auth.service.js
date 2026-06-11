@@ -10,14 +10,25 @@ const store_1 = require("../dubicolt/store");
 const auth_middleware_1 = require("../middlewares/auth.middleware");
 class AuthService {
     async login(email, password) {
-        const user = await store_1.dubicoltStore.findUserByEmail(email);
-        if (!user || !(await bcrypt_1.default.compare(password, user.passwordHash))) {
+        const row = await store_1.dubicoltStore.findUserRowByEmail(email);
+        if (!row || !(await bcrypt_1.default.compare(password, row.password))) {
             throw new AppError_1.AppError(401, 'invalid_credentials', 'Invalid email or password');
         }
+        if (!row.is_active) {
+            throw new AppError_1.AppError(403, 'account_disabled', 'This account has been deactivated');
+        }
+        const user = {
+            id: row.id,
+            email: row.email,
+            passwordHash: row.password,
+            name: row.name,
+            company: row.company,
+            role: row.role,
+        };
         return { ...(0, auth_middleware_1.signTokens)(user), user: store_1.dubicoltStore.toPublicUser(user) };
     }
     async register(data) {
-        if (await store_1.dubicoltStore.findUserByEmail(data.email)) {
+        if (await store_1.dubicoltStore.findUserRowByEmail(data.email)) {
             throw new AppError_1.AppError(400, 'email_exists', 'Account already exists with this email');
         }
         const user = await store_1.dubicoltStore.createUser({
@@ -29,6 +40,16 @@ class AuthService {
     }
     me(user) {
         return store_1.dubicoltStore.toPublicUser(user);
+    }
+    async updateProfile(userId, data) {
+        const profile = await store_1.dubicoltStore.updateUserProfile(userId, data);
+        if (!profile)
+            throw new AppError_1.AppError(404, 'not_found', 'User not found');
+        return profile;
+    }
+    async changePassword(userId, currentPassword, newPassword) {
+        await store_1.dubicoltStore.changeUserPassword(userId, currentPassword, newPassword);
+        return { ok: true };
     }
 }
 exports.AuthService = AuthService;
