@@ -6,6 +6,9 @@ class ReportsService {
     dashboard() {
         return store_1.dubicoltStore.getDashboard();
     }
+    analytics() {
+        return store_1.dubicoltStore.getAnalytics();
+    }
 }
 exports.ReportsService = ReportsService;
 exports.reportsService = new ReportsService();

@@ -6,5 +6,6 @@ const router = Router();
 router.use(requireAuth, requireAdmin);
 
 router.get('/dashboard', controller.dashboard);
+router.get('/analytics', controller.analytics);
 
 export default router;

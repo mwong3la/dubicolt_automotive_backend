@@ -42,6 +42,11 @@ __decorate([
     (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.TEXT),
     __metadata("design:type", String)
 ], Delivery.prototype, "notes", void 0);
+__decorate([
+    (0, sequelize_typescript_1.AllowNull)(true),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
+    __metadata("design:type", String)
+], Delivery.prototype, "proof_url", void 0);
 exports.Delivery = Delivery = __decorate([
     (0, sequelize_typescript_1.Table)({ tableName: 'deliveries', timestamps: true, underscored: true })
 ], Delivery);

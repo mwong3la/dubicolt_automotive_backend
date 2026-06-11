@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import * as controller from '../controllers/orders.controller';
+import * as controller from '../controllers/categories.controller';
 import { requireAuth, requireAdmin } from '../middlewares/auth.middleware';
 
 const router = Router();
-router.use(requireAuth);
 
 router.get('/', controller.list);
-router.get('/:id/invoice', controller.invoice);
 router.get('/:id', controller.get);
-router.put('/:id/status', requireAdmin, controller.updateStatus);
+
+router.use(requireAuth, requireAdmin);
+router.post('/', controller.create);
+router.put('/:id', controller.update);
+router.delete('/:id', controller.delete);
 
 export default router;

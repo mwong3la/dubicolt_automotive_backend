@@ -39,4 +39,5 @@ const auth_middleware_1 = require("../middlewares/auth.middleware");
 const router = (0, express_1.Router)();
 router.use(auth_middleware_1.requireAuth, auth_middleware_1.requireAdmin);
 router.get('/dashboard', controller.dashboard);
+router.get('/analytics', controller.analytics);
 exports.default = router;

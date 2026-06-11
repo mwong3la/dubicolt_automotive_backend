@@ -10,9 +10,9 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const updateStatus = asyncHandler(async (req: Request, res: Response) => {
-  const { status } = req.body ?? {};
+  const { status, proofUrl } = req.body ?? {};
   if (!status) throw new AppError(400, 'validation_error', 'status is required');
-  res.json(await deliveriesService.updateStatus(req.params.id, status));
+  res.json(await deliveriesService.updateStatus(req.params.id, status, proofUrl));
 });
 
 export const get = asyncHandler(async (req: Request, res: Response) => {

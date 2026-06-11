@@ -12,6 +12,7 @@ import suppliersRoutes from './suppliers.routes';
 import deliveriesRoutes from './deliveries.routes';
 import reportsRoutes from './reports.routes';
 import uploadRoutes from './upload.routes';
+import categoriesRoutes from './categories.routes';
 
 const apiRouter = Router();
 
@@ -28,5 +29,6 @@ apiRouter.use('/suppliers', suppliersRoutes);
 apiRouter.use('/deliveries', deliveriesRoutes);
 apiRouter.use('/reports', reportsRoutes);
 apiRouter.use('/uploads', uploadRoutes);
+apiRouter.use('/categories', categoriesRoutes);
 
 export default apiRouter;

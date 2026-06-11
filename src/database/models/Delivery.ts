@@ -36,4 +36,8 @@ export class Delivery extends Model {
   @AllowNull(true)
   @Column(DataType.TEXT)
   notes?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  proof_url?: string;
 }

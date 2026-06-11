@@ -5,8 +5,8 @@ export class DeliveriesService {
     return dubicoltStore.createDelivery(data);
   }
 
-  updateStatus(id: string, status: string) {
-    return dubicoltStore.updateDeliveryStatus(id, status);
+  updateStatus(id: string, status: string, proofUrl?: string) {
+    return dubicoltStore.updateDeliveryStatus(id, status, proofUrl);
   }
 
   get(id: string) {

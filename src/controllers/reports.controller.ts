@@ -5,3 +5,7 @@ import { reportsService } from '../services/reports.service';
 export const dashboard = asyncHandler(async (_req: Request, res: Response) => {
   res.json(await reportsService.dashboard());
 });
+
+export const analytics = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(await reportsService.analytics());
+});
