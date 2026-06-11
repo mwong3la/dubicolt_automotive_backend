@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { authService } from '../services/auth.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { validateLogin, validateRegister } from '../validators/auth.validator';
+import { validateChangePassword, validateUpdateProfile } from '../validators/users.validator';
 import type { AuthRequest } from '../middlewares/auth.middleware';
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
@@ -22,4 +23,14 @@ export const logout = asyncHandler(async (_req: Request, res: Response) => {
 
 export const me = asyncHandler(async (req: AuthRequest, res: Response) => {
   res.json(await authService.me(req.user!));
+});
+
+export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = validateUpdateProfile(req.body ?? {});
+  res.json(await authService.updateProfile(req.user!.id, data));
+});
+
+export const changePassword = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { currentPassword, newPassword } = validateChangePassword(req.body ?? {});
+  res.json(await authService.changePassword(req.user!.id, currentPassword, newPassword));
 });

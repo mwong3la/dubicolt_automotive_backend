@@ -25,5 +25,6 @@ export interface ProductPayload {
   oemNumber?: string;
   sellingPrice: number;
   imageUrl: string;
+  images?: string[];
   compatibleVehicles?: CompatibleVehicle[];
 }

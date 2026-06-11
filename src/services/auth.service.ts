@@ -6,15 +6,26 @@ import type { DubicoltUser } from '../dubicolt/types';
 
 export class AuthService {
   async login(email: string, password: string) {
-    const user = await dubicoltStore.findUserByEmail(email);
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    const row = await dubicoltStore.findUserRowByEmail(email);
+    if (!row || !(await bcrypt.compare(password, row.password))) {
       throw new AppError(401, 'invalid_credentials', 'Invalid email or password');
     }
+    if (!row.is_active) {
+      throw new AppError(403, 'account_disabled', 'This account has been deactivated');
+    }
+    const user = {
+      id: row.id,
+      email: row.email,
+      passwordHash: row.password,
+      name: row.name,
+      company: row.company,
+      role: row.role as DubicoltUser['role'],
+    };
     return { ...signTokens(user), user: dubicoltStore.toPublicUser(user) };
   }
 
   async register(data: { name: string; email: string; password: string }) {
-    if (await dubicoltStore.findUserByEmail(data.email)) {
+    if (await dubicoltStore.findUserRowByEmail(data.email)) {
       throw new AppError(400, 'email_exists', 'Account already exists with this email');
     }
     const user = await dubicoltStore.createUser({
@@ -27,6 +38,17 @@ export class AuthService {
 
   me(user: DubicoltUser) {
     return dubicoltStore.toPublicUser(user);
+  }
+
+  async updateProfile(userId: string, data: { name?: string; company?: string }) {
+    const profile = await dubicoltStore.updateUserProfile(userId, data);
+    if (!profile) throw new AppError(404, 'not_found', 'User not found');
+    return profile;
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    await dubicoltStore.changeUserPassword(userId, currentPassword, newPassword);
+    return { ok: true };
   }
 }
 
