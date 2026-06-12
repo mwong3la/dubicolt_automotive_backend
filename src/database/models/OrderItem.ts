@@ -46,4 +46,8 @@ export class OrderItem extends Model {
   @AllowNull(false)
   @Column(DataType.INTEGER)
   unit_price!: number;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  image_url?: string;
 }

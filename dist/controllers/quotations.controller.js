@@ -5,11 +5,19 @@ const asyncHandler_1 = require("../utils/asyncHandler");
 const quotations_service_1 = require("../services/quotations.service");
 const AppError_1 = require("../errors/AppError");
 exports.create = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
-    const { requestId, price, leadTimeDays, validUntil, supplierId } = req.body ?? {};
-    if (!requestId || !price || !leadTimeDays || !validUntil) {
+    const { requestId, price, leadTimeDays, validUntil, notes, shippingCost, supplierId } = req.body ?? {};
+    if (!requestId || price == null || !leadTimeDays || !validUntil) {
         throw new AppError_1.AppError(400, 'validation_error', 'requestId, price, leadTimeDays, and validUntil are required');
     }
-    res.status(201).json(await quotations_service_1.quotationsService.create({ requestId, price: Number(price), leadTimeDays: Number(leadTimeDays), validUntil, supplierId }));
+    res.status(201).json(await quotations_service_1.quotationsService.create({
+        requestId,
+        price: Number(price),
+        leadTimeDays: Number(leadTimeDays),
+        validUntil,
+        notes,
+        shippingCost: shippingCost != null ? Number(shippingCost) : undefined,
+        supplierId,
+    }));
 });
 exports.get = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const quote = await quotations_service_1.quotationsService.get(req.params.id);

@@ -29,6 +29,7 @@ import {
   notifyPaymentCompleted,
   notifyQuotationCreated,
   notifyQuotationAccepted,
+  notifyQuotationRejected,
   notifyDeliveryUpdated,
 } from '../notifications/email.notifications';
 
@@ -612,6 +613,7 @@ export class DataStore {
             title: item.product.name,
             quantity: item.quantity,
             unit_price: item.unitPrice,
+            image_url: item.product.image_url,
           },
           { transaction },
         );
@@ -737,7 +739,7 @@ export class DataStore {
       customerName: o.user?.name,
       customerEmail: o.user?.email,
       itemTitle: firstItem?.title,
-      itemImageUrl: firstItem?.product?.image_url,
+      itemImageUrl: firstItem?.product?.image_url ?? firstItem?.image_url,
       deliveryId: delivery?.id,
       deliveryStatus: delivery?.status,
     };
@@ -757,7 +759,7 @@ export class DataStore {
         title: i.title,
         quantity: i.quantity,
         unitPrice: i.unit_price,
-        imageUrl: i.product?.image_url,
+        imageUrl: i.product?.image_url ?? i.image_url,
         productId: i.product_id,
       })),
       deliveries: (order.deliveries ?? []).map((d) => ({
@@ -939,13 +941,22 @@ export class DataStore {
   }
 
   async listPartRequests(userId?: string) {
-    const where = userId ? { user_id: userId } : {};
+    const where: Record<string, unknown> = userId ? { user_id: userId } : {};
+    if (userId) where.status = { [Op.ne]: 'CLOSED' };
     const rows = await PartRequest.findAll({
-      where,
-      include: userId ? [] : [{ model: User, attributes: ['name', 'email'] }],
+      where: where as never,
+      include: userId
+        ? []
+        : [
+            { model: User, attributes: ['name', 'email'] },
+            { model: Quotation, attributes: ['id', 'status', 'price', 'lead_time_days', 'valid_until', 'notes', 'shipping_cost', 'created_at'] },
+          ],
       order: [['created_at', 'DESC']],
     });
-    return rows.map((r) => this.partRequestToDto(r, !userId));
+    return rows.map((r) => ({
+      ...this.partRequestToDto(r, !userId),
+      quotations: !userId ? (r.quotations ?? []).map((q) => this.quotationToDto(q)) : undefined,
+    }));
   }
 
   async getPartRequest(id: string, userId?: string) {
@@ -958,9 +969,26 @@ export class DataStore {
       include: [Quotation],
     });
     if (!row) return null;
+
+    let linkedOrder: { orderNumber: string; status: string; amount: number } | null = null;
+    if (row.status === 'CLOSED') {
+      const order = await Order.findOne({
+        where: { part_request_id: row.id },
+        order: [['created_at', 'DESC']],
+      });
+      if (order) {
+        linkedOrder = {
+          orderNumber: order.order_number,
+          status: order.status,
+          amount: order.total,
+        };
+      }
+    }
+
     return {
       ...this.partRequestToDto(row),
       quotations: (row.quotations ?? []).map((q) => this.quotationToDto(q)),
+      linkedOrder,
     };
   }
 
@@ -987,20 +1015,36 @@ export class DataStore {
     price: number;
     leadTimeDays: number;
     validUntil: string;
+    notes?: string;
+    shippingCost?: number;
     supplierId?: string;
   }) {
     const request = await PartRequest.findOne({
       where: partRequestIdWhere(data.requestId) as never,
+      include: [Quotation],
     });
     if (!request) throw new AppError(404, 'not_found', 'Part request not found');
+
+    const payload = {
+      price: data.price,
+      lead_time_days: data.leadTimeDays,
+      valid_until: data.validUntil,
+      notes: data.notes?.trim() || '',
+      shipping_cost: data.shippingCost ?? 0,
+    };
+
+    const pending = (request.quotations ?? []).find((q) => q.status === 'PENDING');
+    if (pending) {
+      await pending.update(payload);
+      await request.update({ status: 'QUOTED' });
+      return this.quotationToDto(pending);
+    }
 
     const quote = await Quotation.create({
       request_id: request.id,
       supplier_id: data.supplierId,
-      price: data.price,
-      lead_time_days: data.leadTimeDays,
-      valid_until: data.validUntil,
       status: 'PENDING',
+      ...payload,
     });
     await request.update({ status: 'QUOTED' });
     void notifyQuotationCreated(request.request_number, quote.id);
@@ -1025,6 +1069,13 @@ export class DataStore {
     if (quote.partRequest?.user_id !== userId) throw new AppError(403, 'forbidden', 'Not your quotation');
     if (quote.status !== 'PENDING') throw new AppError(400, 'invalid_status', 'Quotation is not pending');
 
+    const partRequest = quote.partRequest;
+    const vehicle = partRequest?.vehicle;
+    const itemTitle = vehicle
+      ? `${partRequest!.part_name} · ${vehicle.make} ${vehicle.model} (${vehicle.year})`
+      : partRequest?.part_name ?? 'Requested Part';
+    const itemImageUrl = partRequest?.photo_urls?.[0];
+
     const orderNumber = nextOrderNumber();
     const order = await Order.create({
       order_number: orderNumber,
@@ -1036,9 +1087,10 @@ export class DataStore {
     });
     await OrderItem.create({
       order_id: order.id,
-      title: quote.partRequest?.part_name ?? 'Requested Part',
+      title: itemTitle,
       quantity: 1,
       unit_price: quote.price,
+      image_url: itemImageUrl,
     });
     await Delivery.create({ order_id: order.id, status: 'PROCESSING' });
     await quote.update({ status: 'ACCEPTED' });
@@ -1057,6 +1109,7 @@ export class DataStore {
     await quote.update({ status: 'REJECTED' });
     if (quote.partRequest) {
       await quote.partRequest.update({ status: 'UNDER_REVIEW' });
+      void notifyQuotationRejected(quote.partRequest.request_number, quote.id, userId);
     }
     return this.quotationToDto(quote);
   }
@@ -1066,9 +1119,12 @@ export class DataStore {
       id: q.id,
       requestId: q.request_id,
       price: q.price,
+      shippingCost: Number(q.shipping_cost) || 0,
       leadTimeDays: q.lead_time_days,
       validUntil: q.valid_until,
+      notes: q.notes ?? '',
       status: q.status,
+      createdAt: q.createdAt,
     };
   }
 
@@ -1147,21 +1203,36 @@ export class DataStore {
           model: Order,
           include: [
             { model: User, attributes: ['name', 'email'] },
-            { model: OrderItem },
+            { model: OrderItem, include: [Product] },
           ],
         },
       ],
       order: [['updated_at', 'DESC']],
     });
-    return rows.map((d) => ({
-      ...this.deliveryToDto(d),
-      orderNumber: d.order?.order_number,
-      orderStatus: d.order?.status,
-      customerName: d.order?.user?.name,
-      customerEmail: d.order?.user?.email,
-      itemTitle: d.order?.items?.[0]?.title,
-      deliveryAddress: d.order?.delivery_address,
-    }));
+    return rows.map((d) => {
+      const firstItem = d.order?.items?.[0];
+      return {
+        ...this.deliveryToDto(d),
+        orderNumber: d.order?.order_number,
+        orderStatus: d.order?.status,
+        orderTotal: d.order?.total,
+        orderType: d.order?.part_request_id ? 'sourcing' : 'marketplace',
+        customerName: d.order?.user?.name,
+        customerEmail: d.order?.user?.email,
+        itemTitle: firstItem?.title,
+        itemImageUrl: firstItem?.product?.image_url ?? firstItem?.image_url,
+        itemQuantity: firstItem?.quantity ?? 1,
+        itemUnitPrice: firstItem?.unit_price,
+        deliveryAddress: d.order?.delivery_address,
+        deliveryMethod: d.order?.delivery_method,
+        items: (d.order?.items ?? []).map((i) => ({
+          title: i.title,
+          quantity: i.quantity,
+          unitPrice: i.unit_price,
+          imageUrl: i.product?.image_url ?? i.image_url,
+        })),
+      };
+    });
   }
 
   private deliveryToDto(d: Delivery) {
@@ -1322,16 +1393,33 @@ export class DataStore {
       order: [['created_at', 'ASC']],
     });
 
-    const now = new Date();
+    const startOfDay = (d: Date) => {
+      const x = new Date(d);
+      x.setHours(0, 0, 0, 0);
+      return x;
+    };
+    const formatWeekLabel = (start: Date, endExclusive: Date) => {
+      const endDisplay = new Date(endExclusive);
+      endDisplay.setDate(endDisplay.getDate() - 1);
+      const month = (d: Date) => d.toLocaleDateString('en-KE', { month: 'short' });
+      if (start.getMonth() === endDisplay.getMonth() && start.getFullYear() === endDisplay.getFullYear()) {
+        return `${start.getDate()}–${endDisplay.getDate()} ${month(start)}`;
+      }
+      const day = (d: Date) =>
+        d.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+      return `${day(start)} – ${day(endDisplay)}`;
+    };
+
+    const today = startOfDay(new Date());
     const weeks: { week: string; revenue: number; orders: number }[] = [];
     for (let i = 3; i >= 0; i--) {
-      const start = new Date(now);
+      const start = new Date(today);
       start.setDate(start.getDate() - (i + 1) * 7);
-      const end = new Date(now);
+      const end = new Date(today);
       end.setDate(end.getDate() - i * 7);
-      const label = `W${4 - i}`;
+      const label = formatWeekLabel(start, end);
       const inWeek = orders.filter((o) => {
-        const d = new Date(o.createdAt);
+        const d = startOfDay(new Date(o.createdAt));
         return d >= start && d < end;
       });
       weeks.push({
@@ -1363,12 +1451,24 @@ export class DataStore {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const paidStatuses = ['PAID', 'PROCESSING', 'DISPATCHED', 'IN_TRANSIT', 'DELIVERED'];
+    const twentyEightDaysAgo = new Date(today);
+    twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 28);
+
     const ordersToday = await Order.findAll({
       where: { createdAt: { [Op.gte]: today }, status: { [Op.ne]: 'CANCELLED' } },
     });
     const salesToday = ordersToday
-      .filter((o) => o.status === 'PAID' || o.status === 'DELIVERED' || o.status === 'IN_TRANSIT')
+      .filter((o) => paidStatuses.includes(o.status))
       .reduce((s, o) => s + o.total, 0);
+
+    const ordersLast28Days = await Order.findAll({
+      where: {
+        createdAt: { [Op.gte]: twentyEightDaysAgo },
+        status: { [Op.in]: paidStatuses },
+      },
+    });
+    const salesLast28Days = ordersLast28Days.reduce((s, o) => s + o.total, 0);
 
     const pendingQuotes = await PartRequest.count({ where: { status: { [Op.in]: ['SUBMITTED', 'UNDER_REVIEW'] } } });
 
@@ -1378,7 +1478,9 @@ export class DataStore {
 
     return {
       salesToday,
+      salesLast28Days,
       ordersToday: ordersToday.length,
+      ordersLast28Days: ordersLast28Days.length,
       pendingQuotes,
       lowStockProducts,
     };

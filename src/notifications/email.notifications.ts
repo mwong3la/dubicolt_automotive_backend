@@ -201,6 +201,37 @@ export function notifyQuotationAccepted(orderNumber: string, userId: string) {
   });
 }
 
+export function notifyQuotationRejected(requestNumber: string, quotationId: string, userId: string) {
+  return safeSend(async () => {
+    const request = await PartRequest.findOne({
+      where: { request_number: requestNumber, user_id: userId },
+      include: [{ model: User, attributes: ['name', 'email'] }],
+    });
+    const quote = await Quotation.findByPk(quotationId);
+    if (!request || !quote) return;
+
+    const adminUrl = `${appBaseUrl()}/admin/sourcing/${request.request_number}`;
+    const admins = await adminRecipients();
+    if (!admins.length) return;
+
+    await sendEmail({
+      to: admins,
+      subject: `Quote rejected — ${request.request_number}`,
+      text: [
+        'A customer rejected a sourcing quotation.',
+        '',
+        `Request: ${request.request_number}`,
+        `Customer: ${request.user?.name ?? 'Unknown'} (${request.user?.email ?? 'no email'})`,
+        `Part: ${request.part_name}`,
+        `Vehicle: ${request.vehicle.make} ${request.vehicle.model} ${request.vehicle.year}`,
+        `Rejected price: ${formatKes(Number(quote.price))}`,
+        '',
+        `Prepare a revised quote: ${adminUrl}`,
+      ].join('\n'),
+    });
+  });
+}
+
 export function notifyDeliveryUpdated(orderNumber: string, status: string, proofUrl?: string) {
   return safeSend(async () => {
     const order = await Order.findOne({
