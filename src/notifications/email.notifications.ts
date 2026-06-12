@@ -4,17 +4,13 @@ import { PartRequest } from '../database/models/PartRequest';
 import { Quotation } from '../database/models/Quotation';
 import { orderIdWhere, partRequestIdWhere } from '../dubicolt/id-lookup';
 import { formatKes, sendEmail } from '../services/email.service';
+import { EMAIL_DEFAULTS } from '../config/email.config';
 
 function appBaseUrl(): string {
-  return process.env.APP_BASE_URL?.trim() || 'http://localhost:3000';
+  return EMAIL_DEFAULTS.appBaseUrl;
 }
 
 async function adminRecipients(): Promise<string[]> {
-  const configured = process.env.ADMIN_NOTIFICATION_EMAIL?.split(',')
-    .map((email) => email.trim())
-    .filter(Boolean);
-  if (configured?.length) return configured;
-
   const admins = await User.findAll({
     where: { role: 'admin' },
     attributes: ['email'],
