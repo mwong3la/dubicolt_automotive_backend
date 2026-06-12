@@ -15,8 +15,22 @@ import { Quotation } from '../database/models/Quotation';
 import { Supplier } from '../database/models/Supplier';
 import { Delivery } from '../database/models/Delivery';
 import { Category } from '../database/models/Category';
+import { Promotion } from '../database/models/Promotion';
+import { ReturnRequest } from '../database/models/ReturnRequest';
 import { seedDubicoltCatalog } from '../database/seed-runner';
 import type { DubicoltUser, ProductPayload } from './types';
+import { orderIdWhere, partRequestIdWhere } from './id-lookup';
+import { buildVehicleCatalog, vehicleMatchesFitment } from '../lib/vehicle-catalog';
+import { initiateStkPush, isLiveMpesaEnabled } from '../services/mpesa.service';
+import {
+  notifyOrderPlaced,
+  notifyOrderStatusUpdated,
+  notifyPartRequestSubmitted,
+  notifyPaymentCompleted,
+  notifyQuotationCreated,
+  notifyQuotationAccepted,
+  notifyDeliveryUpdated,
+} from '../notifications/email.notifications';
 
 const LOW_STOCK_THRESHOLD = 10;
 
@@ -25,8 +39,8 @@ function productSellingPrice(p: Product): number {
   return Math.round(Number(p.price_usd) * 130);
 }
 
-function toPublicUser(u: User): { id: string; email: string; name: string; company: string; role: string } {
-  return { id: u.id, email: u.email, name: u.name, company: u.company, role: u.role };
+function toPublicUser(u: User): { id: string; email: string; name: string; role: string } {
+  return { id: u.id, email: u.email, name: u.name, role: u.role };
 }
 
 function toDomainUser(u: User): DubicoltUser {
@@ -35,7 +49,6 @@ function toDomainUser(u: User): DubicoltUser {
     email: u.email,
     passwordHash: u.password,
     name: u.name,
-    company: u.company,
     role: u.role as DubicoltUser['role'],
   };
 }
@@ -48,24 +61,6 @@ function slugify(name: string) {
     .replace(/^-|-$/g, '');
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-/** Lookup by order_number; only match UUID id when the param is a valid UUID. */
-function orderIdWhere(orderId: string): Record<string, unknown> {
-  if (UUID_RE.test(orderId)) {
-    return { [Op.or]: [{ order_number: orderId }, { id: orderId }] };
-  }
-  return { order_number: orderId };
-}
-
-/** Lookup by request_number; only match UUID id when the param is a valid UUID. */
-function partRequestIdWhere(requestId: string): Record<string, unknown> {
-  if (UUID_RE.test(requestId)) {
-    return { [Op.or]: [{ request_number: requestId }, { id: requestId }] };
-  }
-  return { request_number: requestId };
-}
 
 function productImages(p: Product): string[] {
   const list = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
@@ -99,6 +94,10 @@ function nextOrderNumber(): string {
 
 function nextRequestNumber(): string {
   return `REQ${Date.now().toString().slice(-6)}`;
+}
+
+function nextReturnNumber(): string {
+  return `RET${Date.now().toString().slice(-6)}`;
 }
 
 async function getOrCreateInventory(productId: string, transaction?: Transaction): Promise<InventoryRecord> {
@@ -191,7 +190,6 @@ export class DataStore {
             [Op.or]: [
               { name: { [Op.iLike]: `%${searchTerm}%` } },
               { email: { [Op.iLike]: `%${searchTerm}%` } },
-              { company: { [Op.iLike]: `%${searchTerm}%` } },
             ],
           }
         : {}),
@@ -212,7 +210,6 @@ export class DataStore {
     name: string;
     email: string;
     password: string;
-    company?: string;
     role?: DubicoltUser['role'];
   }) {
     const existing = await User.findOne({ where: { email: { [Op.iLike]: data.email.trim() } } });
@@ -223,7 +220,7 @@ export class DataStore {
       email: data.email.trim(),
       password: await bcrypt.hash(data.password, 10),
       name: data.name.trim(),
-      company: (data.company ?? '').trim(),
+      company: '',
       role: data.role ?? 'buyer',
       is_active: true,
     });
@@ -235,7 +232,6 @@ export class DataStore {
     data: Partial<{
       name: string;
       email: string;
-      company: string;
       role: DubicoltUser['role'];
       is_active: boolean;
       password: string;
@@ -253,7 +249,6 @@ export class DataStore {
       row.email = email;
     }
     if (data.name !== undefined) row.name = data.name.trim();
-    if (data.company !== undefined) row.company = data.company.trim();
     if (data.role !== undefined) row.role = data.role;
     if (data.is_active !== undefined) row.is_active = data.is_active;
     if (data.password) row.password = await bcrypt.hash(data.password, 10);
@@ -262,14 +257,10 @@ export class DataStore {
     return this.toAdminUser(row);
   }
 
-  async updateUserProfile(
-    userId: string,
-    data: Partial<{ name: string; company: string }>,
-  ) {
+  async updateUserProfile(userId: string, data: Partial<{ name: string }>) {
     const row = await User.findByPk(userId);
     if (!row || !row.is_active) return null;
     if (data.name !== undefined) row.name = data.name.trim();
-    if (data.company !== undefined) row.company = data.company.trim();
     await row.save();
     return this.toPublicUser(toDomainUser(row));
   }
@@ -286,7 +277,7 @@ export class DataStore {
   }
 
   toPublicUser(u: DubicoltUser) {
-    return { id: u.id, email: u.email, name: u.name, company: u.company, role: u.role };
+    return { id: u.id, email: u.email, name: u.name, role: u.role };
   }
 
   toAdminUser(u: User) {
@@ -294,7 +285,6 @@ export class DataStore {
       id: u.id,
       email: u.email,
       name: u.name,
-      company: u.company,
       role: u.role,
       is_active: u.is_active,
       created_at: u.createdAt?.toISOString() ?? null,
@@ -303,7 +293,7 @@ export class DataStore {
 
   // ── Vehicles ────────────────────────────────────────────────────────────
 
-  async createVehicle(userId: string, data: { make: string; model: string; year: number; engine?: string; vin?: string }) {
+  async createVehicle(userId: string, data: { make: string; model: string; year: number; engine?: string }) {
     const row = await Vehicle.create({ user_id: userId, ...data });
     return this.vehicleToDto(row);
   }
@@ -313,7 +303,7 @@ export class DataStore {
     return rows.map((v) => this.vehicleToDto(v));
   }
 
-  async updateVehicle(userId: string, id: string, data: Partial<{ make: string; model: string; year: number; engine?: string; vin?: string }>) {
+  async updateVehicle(userId: string, id: string, data: Partial<{ make: string; model: string; year: number; engine?: string }>) {
     const row = await Vehicle.findOne({ where: { id, user_id: userId } });
     if (!row) return null;
     await row.update(data);
@@ -325,8 +315,23 @@ export class DataStore {
     return deleted > 0;
   }
 
+  async getVehicle(userId: string, id: string) {
+    const row = await Vehicle.findOne({ where: { id, user_id: userId } });
+    if (!row) return null;
+    return this.vehicleToDto(row);
+  }
+
+  async getVehicleCatalog() {
+    const rows = await Product.findAll({
+      where: { status: 'published' },
+      attributes: ['compatible_vehicles'],
+    });
+    const vehicles = rows.flatMap((row) => row.compatible_vehicles ?? []);
+    return buildVehicleCatalog(vehicles);
+  }
+
   private vehicleToDto(v: Vehicle) {
-    return { id: v.id, make: v.make, model: v.model, year: v.year, engine: v.engine, vin: v.vin };
+    return { id: v.id, make: v.make, model: v.model, year: v.year, engine: v.engine };
   }
 
   // ── Products ────────────────────────────────────────────────────────────
@@ -411,9 +416,33 @@ export class DataStore {
     make?: string;
     model?: string;
     year?: number;
+    engine?: string;
+    vehicleId?: string;
+    userId?: string;
     category?: string;
     brand?: string;
   }) {
+    let make = filters.make;
+    let model = filters.model;
+    let year = filters.year;
+    let engine = filters.engine;
+
+    if (filters.vehicleId) {
+      if (!filters.userId) {
+        throw new AppError(401, 'unauthorized', 'Authentication required to search by saved vehicle');
+      }
+      const savedVehicle = await Vehicle.findOne({
+        where: { id: filters.vehicleId, user_id: filters.userId },
+      });
+      if (!savedVehicle) {
+        throw new AppError(404, 'not_found', 'Saved vehicle not found');
+      }
+      make = savedVehicle.make;
+      model = savedVehicle.model;
+      year = savedVehicle.year;
+      if (!engine && savedVehicle.engine) engine = savedVehicle.engine;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { status: 'published' };
     if (filters.category) where.category = { [Op.iLike]: filters.category };
@@ -429,17 +458,10 @@ export class DataStore {
 
     let rows = await Product.findAll({ where, order: [['name', 'ASC']] });
 
-    if (filters.make || filters.model || filters.year) {
-      rows = rows.filter((p) => {
-        const vehicles = p.compatible_vehicles ?? [];
-        if (vehicles.length === 0) return !filters.make && !filters.model && !filters.year;
-        return vehicles.some((v) => {
-          if (filters.make && v.make.toLowerCase() !== filters.make.toLowerCase()) return false;
-          if (filters.model && v.model.toLowerCase() !== filters.model.toLowerCase()) return false;
-          if (filters.year && (filters.year < v.yearFrom || filters.year > v.yearTo)) return false;
-          return true;
-        });
-      });
+    if (make || model || year || engine) {
+      rows = rows.filter((product) =>
+        vehicleMatchesFitment(product.compatible_vehicles ?? [], { make, model, year, engine }),
+      );
     }
 
     const result = [];
@@ -541,7 +563,10 @@ export class DataStore {
 
   // ── Checkout ──────────────────────────────────────────────────────────────
 
-  async checkout(userId: string, data: { deliveryMethod: string; deliveryAddress: string }) {
+  async checkout(
+    userId: string,
+    data: { deliveryMethod: string; deliveryAddress: string; promoCode?: string },
+  ) {
     const cartRows = await CartItem.findAll({ where: { user_id: userId }, include: [Product] });
     if (cartRows.length === 0) throw new AppError(400, 'empty_cart', 'Cart is empty');
 
@@ -561,15 +586,20 @@ export class DataStore {
         lineItems.push({ product, quantity: row.quantity, unitPrice });
       }
 
+      const { discount, code: promotionCode } = await this.resolvePromotion(data.promoCode, total);
+      const orderTotal = Math.max(0, total - discount);
+
       const orderNumber = nextOrderNumber();
       const order = await Order.create(
         {
           order_number: orderNumber,
           user_id: userId,
           status: 'PENDING_PAYMENT',
-          total,
+          total: orderTotal,
           delivery_method: data.deliveryMethod,
           delivery_address: data.deliveryAddress,
+          promotion_code: promotionCode,
+          discount_amount: discount,
         },
         { transaction },
       );
@@ -593,7 +623,10 @@ export class DataStore {
 
       await CartItem.destroy({ where: { user_id: userId }, transaction });
 
-      return { orderId: order.order_number, amount: total };
+      return { orderId: order.order_number, amount: orderTotal, userId };
+    }).then((result) => {
+      void notifyOrderPlaced(result.orderId, result.userId);
+      return { orderId: result.orderId, amount: result.amount };
     });
   }
 
@@ -630,7 +663,7 @@ export class DataStore {
     return this.orderDetailToDto(order);
   }
 
-  async updateOrderStatus(orderId: string, status: string) {
+  async updateOrderStatus(orderId: string, status: string, paymentNote?: string) {
     const allowed = [
       'PENDING_PAYMENT',
       'PAID',
@@ -649,10 +682,32 @@ export class DataStore {
       include: [Delivery, { model: OrderItem, include: [Product] }, User],
     });
     if (!order) return null;
+    const previousStatus = order.status;
     await order.update({ status: normalized as Order['status'] });
 
-    const delivery = order.deliveries?.[0];
-    if (delivery) {
+    if (normalized === 'PAID' && previousStatus !== 'PAID') {
+      const completed = await Payment.findOne({
+        where: { order_id: order.id, status: 'COMPLETED' },
+      });
+      if (!completed) {
+        await Payment.create({
+          order_id: order.id,
+          method: 'external',
+          amount: order.total,
+          phone: '',
+          status: 'COMPLETED',
+          mpesa_receipt_number: paymentNote?.trim() || `EXT${Date.now()}`,
+        });
+      }
+      const existingDelivery = order.deliveries?.[0] ?? (await Delivery.findOne({ where: { order_id: order.id } }));
+      if (!existingDelivery) {
+        await Delivery.create({ order_id: order.id, status: 'PROCESSING' });
+      }
+      void notifyPaymentCompleted(order.order_number);
+    }
+
+    const delivery = order.deliveries?.[0] ?? (await Delivery.findOne({ where: { order_id: order.id } }));
+    if (delivery && normalized !== 'PAID') {
       const deliveryStatus =
         normalized === 'DELIVERED'
           ? 'DELIVERED'
@@ -662,6 +717,10 @@ export class DataStore {
               ? 'DISPATCHED'
               : 'PROCESSING';
       await delivery.update({ status: deliveryStatus as Delivery['status'] });
+    }
+
+    if (normalized !== 'PAID') {
+      void notifyOrderStatusUpdated(orderId, normalized);
     }
 
     return this.orderDetailToDto(order);
@@ -720,7 +779,7 @@ export class DataStore {
     if (order.status === 'PAID') throw new AppError(400, 'already_paid', 'Order already paid');
 
     const normalizedPhone = phone.replace(/\D/g, '').replace(/^0/, '254');
-    const checkoutRequestId = `CHK${Date.now()}`;
+    let checkoutRequestId = `CHK${Date.now()}`;
 
     const payment = await Payment.create({
       order_id: order.id,
@@ -731,9 +790,18 @@ export class DataStore {
       mpesa_checkout_request_id: checkoutRequestId,
     });
 
-    const useSandbox = !process.env.MPESA_CONSUMER_KEY;
+    const useSandbox = !isLiveMpesaEnabled();
     if (useSandbox) {
       await this.completePayment(payment.id, { receiptNumber: `MPESA${Date.now()}` });
+    } else {
+      const stk = await initiateStkPush({
+        phone: normalizedPhone,
+        amount: order.total,
+        accountReference: order.order_number,
+        transactionDesc: 'Dubicolt order',
+      });
+      checkoutRequestId = stk.checkoutRequestId;
+      await payment.update({ mpesa_checkout_request_id: checkoutRequestId });
     }
 
     return {
@@ -743,7 +811,7 @@ export class DataStore {
       phone: normalizedPhone,
       message: useSandbox
         ? 'M-Pesa sandbox: payment auto-completed (set MPESA_* env vars for live STK push)'
-        : 'STK push initiated',
+        : 'STK push sent — enter your M-Pesa PIN on your phone',
     };
   }
 
@@ -840,6 +908,7 @@ export class DataStore {
       if (!existing) {
         await Delivery.create({ order_id: payment.order.id, status: 'PROCESSING' });
       }
+      void notifyPaymentCompleted(payment.order.order_number);
     }
   }
 
@@ -851,8 +920,8 @@ export class DataStore {
       vehicle: { make: string; model: string; year: number };
       partName: string;
       description: string;
-      vin?: string;
       photoUrls?: string[];
+      urgency?: 'standard' | 'express';
     },
   ) {
     const row = await PartRequest.create({
@@ -861,10 +930,11 @@ export class DataStore {
       vehicle: data.vehicle,
       part_name: data.partName,
       description: data.description,
-      vin: data.vin,
       photo_urls: data.photoUrls ?? [],
+      urgency: data.urgency ?? 'standard',
       status: 'SUBMITTED',
     });
+    void notifyPartRequestSubmitted(row.request_number, userId);
     return this.partRequestToDto(row);
   }
 
@@ -901,8 +971,8 @@ export class DataStore {
       vehicle: r.vehicle,
       partName: r.part_name,
       description: r.description,
-      vin: r.vin,
       photoUrls: r.photo_urls,
+      urgency: r.urgency,
       status: r.status,
       createdAt: r.createdAt,
       customerName: includeCustomer ? r.user?.name : undefined,
@@ -933,6 +1003,7 @@ export class DataStore {
       status: 'PENDING',
     });
     await request.update({ status: 'QUOTED' });
+    void notifyQuotationCreated(request.request_number, quote.id);
     return this.quotationToDto(quote);
   }
 
@@ -973,6 +1044,8 @@ export class DataStore {
     await quote.update({ status: 'ACCEPTED' });
     if (quote.partRequest) await quote.partRequest.update({ status: 'CLOSED' });
 
+    void notifyQuotationAccepted(order.order_number, userId);
+
     return { orderId: order.order_number, amount: quote.price };
   }
 
@@ -980,7 +1053,11 @@ export class DataStore {
     const quote = await Quotation.findByPk(id, { include: [PartRequest] });
     if (!quote) throw new AppError(404, 'not_found', 'Quotation not found');
     if (quote.partRequest?.user_id !== userId) throw new AppError(403, 'forbidden', 'Not your quotation');
+    if (quote.status !== 'PENDING') throw new AppError(400, 'invalid_status', 'Quotation is not pending');
     await quote.update({ status: 'REJECTED' });
+    if (quote.partRequest) {
+      await quote.partRequest.update({ status: 'UNDER_REVIEW' });
+    }
     return this.quotationToDto(quote);
   }
 
@@ -1041,8 +1118,15 @@ export class DataStore {
     });
     if (delivery.order) {
       const orderStatus =
-        normalized === 'DELIVERED' ? 'DELIVERED' : normalized === 'IN_TRANSIT' ? 'IN_TRANSIT' : 'PROCESSING';
+        normalized === 'DELIVERED'
+          ? 'DELIVERED'
+          : normalized === 'IN_TRANSIT'
+            ? 'IN_TRANSIT'
+            : normalized === 'DISPATCHED'
+              ? 'DISPATCHED'
+              : 'PROCESSING';
       await delivery.order.update({ status: orderStatus as Order['status'] });
+      void notifyDeliveryUpdated(delivery.order.order_number, normalized, proofUrl);
     }
     return this.deliveryToDto(delivery);
   }
@@ -1054,6 +1138,30 @@ export class DataStore {
       ...this.deliveryToDto(delivery),
       orderId: delivery.order?.order_number,
     };
+  }
+
+  async listDeliveries() {
+    const rows = await Delivery.findAll({
+      include: [
+        {
+          model: Order,
+          include: [
+            { model: User, attributes: ['name', 'email'] },
+            { model: OrderItem },
+          ],
+        },
+      ],
+      order: [['updated_at', 'DESC']],
+    });
+    return rows.map((d) => ({
+      ...this.deliveryToDto(d),
+      orderNumber: d.order?.order_number,
+      orderStatus: d.order?.status,
+      customerName: d.order?.user?.name,
+      customerEmail: d.order?.user?.email,
+      itemTitle: d.order?.items?.[0]?.title,
+      deliveryAddress: d.order?.delivery_address,
+    }));
   }
 
   private deliveryToDto(d: Delivery) {
@@ -1273,6 +1381,215 @@ export class DataStore {
       ordersToday: ordersToday.length,
       pendingQuotes,
       lowStockProducts,
+    };
+  }
+
+  // ── Promotions ────────────────────────────────────────────────────────────
+
+  async resolvePromotion(code: string | undefined, subtotal: number) {
+    if (!code?.trim()) return { discount: 0, code: undefined as string | undefined };
+    const promo = await Promotion.findOne({
+      where: { code: code.trim().toUpperCase(), active: true },
+    });
+    if (!promo) throw new AppError(400, 'invalid_promo', 'Promotion code is not valid');
+    const now = new Date();
+    if (promo.starts_at && now < promo.starts_at) {
+      throw new AppError(400, 'invalid_promo', 'Promotion is not active yet');
+    }
+    if (promo.ends_at && now > promo.ends_at) {
+      throw new AppError(400, 'invalid_promo', 'Promotion has expired');
+    }
+    if (promo.max_uses != null && promo.usage_count >= promo.max_uses) {
+      throw new AppError(400, 'invalid_promo', 'Promotion usage limit reached');
+    }
+    const minOrder = Number(promo.min_order_amount) || 0;
+    if (subtotal < minOrder) {
+      throw new AppError(400, 'invalid_promo', `Minimum order amount is KSh ${minOrder.toLocaleString('en-KE')}`);
+    }
+    const value = Number(promo.value);
+    const discount =
+      promo.type === 'percent'
+        ? Math.min(subtotal, Math.round((subtotal * value) / 100))
+        : Math.min(subtotal, Math.round(value));
+    await promo.update({ usage_count: promo.usage_count + 1 });
+    return { discount, code: promo.code };
+  }
+
+  async validatePromotion(code: string, subtotal: number) {
+    const promo = await Promotion.findOne({
+      where: { code: code.trim().toUpperCase(), active: true },
+    });
+    if (!promo) throw new AppError(400, 'invalid_promo', 'Promotion code is not valid');
+    const now = new Date();
+    if (promo.starts_at && now < promo.starts_at) {
+      throw new AppError(400, 'invalid_promo', 'Promotion is not active yet');
+    }
+    if (promo.ends_at && now > promo.ends_at) {
+      throw new AppError(400, 'invalid_promo', 'Promotion has expired');
+    }
+    if (promo.max_uses != null && promo.usage_count >= promo.max_uses) {
+      throw new AppError(400, 'invalid_promo', 'Promotion usage limit reached');
+    }
+    const minOrder = Number(promo.min_order_amount) || 0;
+    if (subtotal < minOrder) {
+      throw new AppError(400, 'invalid_promo', `Minimum order amount is KSh ${minOrder.toLocaleString('en-KE')}`);
+    }
+    const value = Number(promo.value);
+    const discount =
+      promo.type === 'percent'
+        ? Math.min(subtotal, Math.round((subtotal * value) / 100))
+        : Math.min(subtotal, Math.round(value));
+    return {
+      code: promo.code,
+      name: promo.name,
+      type: promo.type,
+      value,
+      discount,
+      minOrderAmount: minOrder,
+    };
+  }
+
+  async listPromotions() {
+    const rows = await Promotion.findAll({ order: [['created_at', 'DESC']] });
+    return rows.map((p) => this.promotionToDto(p));
+  }
+
+  async createPromotion(data: {
+    code: string;
+    name: string;
+    type: 'percent' | 'fixed';
+    value: number;
+    minOrderAmount?: number;
+    active?: boolean;
+    startsAt?: string;
+    endsAt?: string;
+    maxUses?: number;
+  }) {
+    const row = await Promotion.create({
+      code: data.code.trim().toUpperCase(),
+      name: data.name.trim(),
+      type: data.type,
+      value: data.value,
+      min_order_amount: data.minOrderAmount ?? 0,
+      active: data.active ?? true,
+      starts_at: data.startsAt ? new Date(data.startsAt) : undefined,
+      ends_at: data.endsAt ? new Date(data.endsAt) : undefined,
+      max_uses: data.maxUses,
+    });
+    return this.promotionToDto(row);
+  }
+
+  async updatePromotion(
+    id: string,
+    data: Partial<{
+      code: string;
+      name: string;
+      type: 'percent' | 'fixed';
+      value: number;
+      minOrderAmount: number;
+      active: boolean;
+      startsAt: string;
+      endsAt: string;
+      maxUses: number;
+    }>,
+  ) {
+    const row = await Promotion.findByPk(id);
+    if (!row) return null;
+    await row.update({
+      ...(data.code !== undefined ? { code: data.code.trim().toUpperCase() } : {}),
+      ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+      ...(data.type !== undefined ? { type: data.type } : {}),
+      ...(data.value !== undefined ? { value: data.value } : {}),
+      ...(data.minOrderAmount !== undefined ? { min_order_amount: data.minOrderAmount } : {}),
+      ...(data.active !== undefined ? { active: data.active } : {}),
+      ...(data.startsAt !== undefined ? { starts_at: data.startsAt ? new Date(data.startsAt) : null } : {}),
+      ...(data.endsAt !== undefined ? { ends_at: data.endsAt ? new Date(data.endsAt) : null } : {}),
+      ...(data.maxUses !== undefined ? { max_uses: data.maxUses } : {}),
+    });
+    return this.promotionToDto(row);
+  }
+
+  private promotionToDto(p: Promotion) {
+    return {
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      type: p.type,
+      value: Number(p.value),
+      minOrderAmount: Number(p.min_order_amount),
+      active: p.active,
+      startsAt: p.starts_at?.toISOString() ?? null,
+      endsAt: p.ends_at?.toISOString() ?? null,
+      usageCount: p.usage_count,
+      maxUses: p.max_uses ?? null,
+    };
+  }
+
+  // ── Returns ───────────────────────────────────────────────────────────────
+
+  async createReturnRequest(userId: string, data: { orderId: string; reason: string }) {
+    const order = await Order.findOne({
+      where: { ...orderIdWhere(data.orderId), user_id: userId } as never,
+    });
+    if (!order) throw new AppError(404, 'not_found', 'Order not found');
+    if (!['PAID', 'PROCESSING', 'DISPATCHED', 'IN_TRANSIT', 'DELIVERED'].includes(order.status)) {
+      throw new AppError(400, 'invalid_status', 'This order cannot be returned');
+    }
+    const existing = await ReturnRequest.findOne({
+      where: { order_id: order.id, status: { [Op.in]: ['REQUESTED', 'APPROVED'] } },
+    });
+    if (existing) throw new AppError(400, 'return_exists', 'A return request is already open for this order');
+    const row = await ReturnRequest.create({
+      return_number: nextReturnNumber(),
+      order_id: order.id,
+      user_id: userId,
+      reason: data.reason.trim(),
+      status: 'REQUESTED',
+    });
+    return this.returnToDto(row, order.order_number);
+  }
+
+  async listReturnRequests(userId?: string) {
+    const where = userId ? { user_id: userId } : {};
+    const rows = await ReturnRequest.findAll({
+      where,
+      include: [
+        { model: Order, attributes: ['order_number', 'total', 'status'] },
+        { model: User, attributes: ['name', 'email'] },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+    return rows.map((r) =>
+      this.returnToDto(r, r.order?.order_number, !userId ? r.user?.name : undefined, !userId ? r.user?.email : undefined),
+    );
+  }
+
+  async updateReturnRequest(
+    id: string,
+    data: { status: 'APPROVED' | 'REJECTED' | 'REFUNDED'; refundAmount?: number; adminNotes?: string },
+  ) {
+    const row = await ReturnRequest.findByPk(id, { include: [Order] });
+    if (!row) return null;
+    await row.update({
+      status: data.status,
+      ...(data.refundAmount !== undefined ? { refund_amount: data.refundAmount } : {}),
+      ...(data.adminNotes !== undefined ? { admin_notes: data.adminNotes.trim() } : {}),
+    });
+    return this.returnToDto(row, row.order?.order_number);
+  }
+
+  private returnToDto(r: ReturnRequest, orderNumber?: string, customerName?: string, customerEmail?: string) {
+    return {
+      id: r.id,
+      returnNumber: r.return_number,
+      orderId: orderNumber ?? r.order_id,
+      reason: r.reason,
+      status: r.status,
+      refundAmount: r.refund_amount != null ? Number(r.refund_amount) : null,
+      adminNotes: r.admin_notes ?? null,
+      createdAt: r.createdAt,
+      customerName,
+      customerEmail,
     };
   }
 }

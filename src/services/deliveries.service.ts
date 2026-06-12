@@ -12,6 +12,10 @@ export class DeliveriesService {
   get(id: string) {
     return dubicoltStore.getDelivery(id);
   }
+
+  list() {
+    return dubicoltStore.listDeliveries();
+  }
 }
 
 export const deliveriesService = new DeliveriesService();

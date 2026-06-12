@@ -5,12 +5,18 @@ import { AppError } from '../errors/AppError';
 import type { AuthRequest } from '../middlewares/auth.middleware';
 
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { vehicle, partName, description, vin, photoUrls } = req.body ?? {};
+  const { vehicle, partName, description, photoUrls, urgency } = req.body ?? {};
   if (!vehicle || !partName || !description) {
     throw new AppError(400, 'validation_error', 'vehicle, partName, and description are required');
   }
   res.status(201).json(
-    await partRequestsService.create(req.user!.id, { vehicle, partName, description, vin, photoUrls }),
+    await partRequestsService.create(req.user!.id, {
+      vehicle,
+      partName,
+      description,
+      photoUrls,
+      urgency,
+    }),
   );
 });
 

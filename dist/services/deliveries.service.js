@@ -12,6 +12,9 @@ class DeliveriesService {
     get(id) {
         return store_1.dubicoltStore.getDelivery(id);
     }
+    list() {
+        return store_1.dubicoltStore.listDeliveries();
+    }
 }
 exports.DeliveriesService = DeliveriesService;
 exports.deliveriesService = new DeliveriesService();

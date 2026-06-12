@@ -5,11 +5,17 @@ const asyncHandler_1 = require("../utils/asyncHandler");
 const part_requests_service_1 = require("../services/part-requests.service");
 const AppError_1 = require("../errors/AppError");
 exports.create = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
-    const { vehicle, partName, description, vin, photoUrls } = req.body ?? {};
+    const { vehicle, partName, description, photoUrls, urgency } = req.body ?? {};
     if (!vehicle || !partName || !description) {
         throw new AppError_1.AppError(400, 'validation_error', 'vehicle, partName, and description are required');
     }
-    res.status(201).json(await part_requests_service_1.partRequestsService.create(req.user.id, { vehicle, partName, description, vin, photoUrls }));
+    res.status(201).json(await part_requests_service_1.partRequestsService.create(req.user.id, {
+        vehicle,
+        partName,
+        description,
+        photoUrls,
+        urgency,
+    }));
 });
 exports.list = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const userId = req.user.role === 'admin' ? undefined : req.user.id;

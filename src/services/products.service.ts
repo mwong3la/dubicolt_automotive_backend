@@ -23,6 +23,9 @@ export class ProductsService {
     make?: string;
     model?: string;
     year?: number;
+    engine?: string;
+    vehicleId?: string;
+    userId?: string;
     category?: string;
     brand?: string;
   }) {

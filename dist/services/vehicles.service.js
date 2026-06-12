@@ -3,6 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.vehiclesService = exports.VehiclesService = void 0;
 const store_1 = require("../dubicolt/store");
 class VehiclesService {
+    catalog() {
+        return store_1.dubicoltStore.getVehicleCatalog();
+    }
     create(userId, data) {
         return store_1.dubicoltStore.createVehicle(userId, data);
     }

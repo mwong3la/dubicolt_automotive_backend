@@ -17,9 +17,9 @@ export const get = asyncHandler(async (req: AuthRequest, res: Response) => {
 });
 
 export const updateStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { status } = req.body as { status?: string };
+  const { status, paymentNote } = req.body as { status?: string; paymentNote?: string };
   if (!status) throw new AppError(400, 'validation_error', 'status is required');
-  const order = await ordersService.updateStatus(req.params.id, status);
+  const order = await ordersService.updateStatus(req.params.id, status, paymentNote);
   if (!order) throw new AppError(404, 'not_found', 'Order not found');
   res.json(order);
 });

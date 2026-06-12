@@ -17,7 +17,7 @@ export class CartService {
     return dubicoltStore.removeCartItem(userId, itemId);
   }
 
-  checkout(userId: string, data: { deliveryMethod: string; deliveryAddress: string }) {
+  checkout(userId: string, data: { deliveryMethod: string; deliveryAddress: string; promoCode?: string }) {
     return dubicoltStore.checkout(userId, data);
   }
 }

@@ -25,9 +25,9 @@ export const removeItem = asyncHandler(async (req: AuthRequest, res: Response) =
 });
 
 export const checkout = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { deliveryMethod, deliveryAddress } = req.body ?? {};
+  const { deliveryMethod, deliveryAddress, promoCode } = req.body ?? {};
   if (!deliveryMethod || !deliveryAddress) {
     throw new AppError(400, 'validation_error', 'deliveryMethod and deliveryAddress are required');
   }
-  res.json(await cartService.checkout(req.user!.id, { deliveryMethod, deliveryAddress }));
+  res.json(await cartService.checkout(req.user!.id, { deliveryMethod, deliveryAddress, promoCode }));
 });

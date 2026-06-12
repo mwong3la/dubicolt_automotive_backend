@@ -5,7 +5,6 @@ export interface DubicoltUser {
   email: string;
   passwordHash: string;
   name: string;
-  company: string;
   role: UserRole;
 }
 
@@ -14,6 +13,7 @@ export interface CompatibleVehicle {
   model: string;
   yearFrom: number;
   yearTo: number;
+  engine?: string;
 }
 
 export interface ProductPayload {

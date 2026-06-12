@@ -28,6 +28,23 @@ export function signTokens(user: DubicoltUser) {
   return { access_token, refresh_token, expires_in: 3600 };
 }
 
+export async function optionalAuth(req: AuthRequest, _res: Response, next: NextFunction): Promise<void> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const user = await dubicoltStore.getUser(decoded.userId);
+    if (user) req.user = user;
+  } catch {
+    // Ignore invalid tokens for optional auth routes.
+  }
+  next();
+}
+
 export async function requireAuth(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {

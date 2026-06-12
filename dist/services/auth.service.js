@@ -8,6 +8,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const AppError_1 = require("../errors/AppError");
 const store_1 = require("../dubicolt/store");
 const auth_middleware_1 = require("../middlewares/auth.middleware");
+const email_notifications_1 = require("../notifications/email.notifications");
 class AuthService {
     async login(email, password) {
         const row = await store_1.dubicoltStore.findUserRowByEmail(email);
@@ -22,7 +23,6 @@ class AuthService {
             email: row.email,
             passwordHash: row.password,
             name: row.name,
-            company: row.company,
             role: row.role,
         };
         return { ...(0, auth_middleware_1.signTokens)(user), user: store_1.dubicoltStore.toPublicUser(user) };
@@ -36,6 +36,7 @@ class AuthService {
             password: data.password,
             name: data.name,
         });
+        void (0, email_notifications_1.notifyWelcome)(user.id);
         return { ...(0, auth_middleware_1.signTokens)(user), user: store_1.dubicoltStore.toPublicUser(user) };
     }
     me(user) {

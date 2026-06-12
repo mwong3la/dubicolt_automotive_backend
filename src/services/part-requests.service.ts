@@ -7,8 +7,8 @@ export class PartRequestsService {
       vehicle: { make: string; model: string; year: number };
       partName: string;
       description: string;
-      vin?: string;
       photoUrls?: string[];
+      urgency?: 'standard' | 'express';
     },
   ) {
     return dubicoltStore.createPartRequest(userId, data);
