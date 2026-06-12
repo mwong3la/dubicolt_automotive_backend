@@ -63,6 +63,16 @@ __decorate([
     (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
     __metadata("design:type", String)
 ], Quotation.prototype, "status", void 0);
+__decorate([
+    (0, sequelize_typescript_1.AllowNull)(true),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.TEXT),
+    __metadata("design:type", String)
+], Quotation.prototype, "notes", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Default)(0),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.INTEGER),
+    __metadata("design:type", Number)
+], Quotation.prototype, "shipping_cost", void 0);
 exports.Quotation = Quotation = __decorate([
     (0, sequelize_typescript_1.Table)({ tableName: 'quotations', timestamps: true, underscored: true })
 ], Quotation);

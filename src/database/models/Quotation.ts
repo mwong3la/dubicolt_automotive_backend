@@ -53,4 +53,12 @@ export class Quotation extends Model {
   @Default('PENDING')
   @Column(DataType.STRING)
   status!: QuotationStatus;
+
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  notes?: string;
+
+  @Default(0)
+  @Column(DataType.INTEGER)
+  shipping_cost!: number;
 }

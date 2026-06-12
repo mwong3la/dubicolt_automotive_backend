@@ -5,12 +5,20 @@ import { AppError } from '../errors/AppError';
 import type { AuthRequest } from '../middlewares/auth.middleware';
 
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { requestId, price, leadTimeDays, validUntil, supplierId } = req.body ?? {};
-  if (!requestId || !price || !leadTimeDays || !validUntil) {
+  const { requestId, price, leadTimeDays, validUntil, notes, shippingCost, supplierId } = req.body ?? {};
+  if (!requestId || price == null || !leadTimeDays || !validUntil) {
     throw new AppError(400, 'validation_error', 'requestId, price, leadTimeDays, and validUntil are required');
   }
   res.status(201).json(
-    await quotationsService.create({ requestId, price: Number(price), leadTimeDays: Number(leadTimeDays), validUntil, supplierId }),
+    await quotationsService.create({
+      requestId,
+      price: Number(price),
+      leadTimeDays: Number(leadTimeDays),
+      validUntil,
+      notes,
+      shippingCost: shippingCost != null ? Number(shippingCost) : undefined,
+      supplierId,
+    }),
   );
 });
 

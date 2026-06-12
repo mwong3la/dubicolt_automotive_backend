@@ -1,7 +1,15 @@
 import { dubicoltStore } from '../dubicolt/store';
 
 export class QuotationsService {
-  create(data: { requestId: string; price: number; leadTimeDays: number; validUntil: string; supplierId?: string }) {
+  create(data: {
+    requestId: string;
+    price: number;
+    leadTimeDays: number;
+    validUntil: string;
+    notes?: string;
+    shippingCost?: number;
+    supplierId?: string;
+  }) {
     return dubicoltStore.createQuotation(data);
   }
 
