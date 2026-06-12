@@ -57,6 +57,11 @@ export class PartRequest extends Model {
   photo_urls!: string[];
 
   @AllowNull(false)
+  @Default('standard')
+  @Column(DataType.STRING)
+  urgency!: 'standard' | 'express';
+
+  @AllowNull(false)
   @Default('SUBMITTED')
   @Column(DataType.STRING)
   status!: PartRequestStatus;

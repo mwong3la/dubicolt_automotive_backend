@@ -3,6 +3,9 @@ import * as controller from '../controllers/vehicles.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 
 const router = Router();
+
+router.get('/catalog', controller.catalog);
+
 router.use(requireAuth);
 
 router.post('/', controller.create);

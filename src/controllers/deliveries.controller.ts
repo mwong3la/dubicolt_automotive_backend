@@ -20,3 +20,7 @@ export const get = asyncHandler(async (req: Request, res: Response) => {
   if (!delivery) throw new AppError(404, 'not_found', 'Delivery not found');
   res.json(delivery);
 });
+
+export const list = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(await deliveriesService.list());
+});

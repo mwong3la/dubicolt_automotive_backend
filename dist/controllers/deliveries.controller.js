@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.get = exports.updateStatus = exports.create = void 0;
+exports.list = exports.get = exports.updateStatus = exports.create = void 0;
 const asyncHandler_1 = require("../utils/asyncHandler");
 const deliveries_service_1 = require("../services/deliveries.service");
 const AppError_1 = require("../errors/AppError");
@@ -21,4 +21,7 @@ exports.get = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     if (!delivery)
         throw new AppError_1.AppError(404, 'not_found', 'Delivery not found');
     res.json(delivery);
+});
+exports.list = (0, asyncHandler_1.asyncHandler)(async (_req, res) => {
+    res.json(await deliveries_service_1.deliveriesService.list());
 });

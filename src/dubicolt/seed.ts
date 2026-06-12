@@ -33,7 +33,7 @@ export const SEED_PRODUCTS = [
       'https://placehold.co/400x400?text=Brake+Pad+3',
       'https://placehold.co/400x400?text=Brake+Pad+4',
     ],
-    compatibleVehicles: [{ make: 'Toyota', model: 'Hilux', yearFrom: 2016, yearTo: 2020 }],
+    compatibleVehicles: [{ make: 'Toyota', model: 'Hilux', yearFrom: 2016, yearTo: 2020, engine: '2.8L Diesel' }],
     stock: 50,
   },
   {
@@ -50,7 +50,7 @@ export const SEED_PRODUCTS = [
       'https://placehold.co/400x400?text=Oil+Filter+2',
       'https://placehold.co/400x400?text=Oil+Filter+3',
     ],
-    compatibleVehicles: [{ make: 'Toyota', model: 'Hilux', yearFrom: 2015, yearTo: 2022 }],
+    compatibleVehicles: [{ make: 'Toyota', model: 'Hilux', yearFrom: 2015, yearTo: 2022, engine: '2.4L Petrol' }],
     stock: 100,
   },
   {
@@ -66,7 +66,7 @@ export const SEED_PRODUCTS = [
       'https://placehold.co/400x400?text=ABS+Sensor+1',
       'https://placehold.co/400x400?text=ABS+Sensor+2',
     ],
-    compatibleVehicles: [{ make: 'Toyota', model: 'Prado', yearFrom: 2010, yearTo: 2019 }],
+    compatibleVehicles: [{ make: 'Toyota', model: 'Prado', yearFrom: 2010, yearTo: 2019, engine: '4.0L Petrol' }],
     stock: 8,
   },
 ];

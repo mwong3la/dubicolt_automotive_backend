@@ -9,8 +9,8 @@ export class OrdersService {
     return dubicoltStore.getOrder(userId, orderId);
   }
 
-  updateStatus(orderId: string, status: string) {
-    return dubicoltStore.updateOrderStatus(orderId, status);
+  updateStatus(orderId: string, status: string, paymentNote?: string) {
+    return dubicoltStore.updateOrderStatus(orderId, status, paymentNote);
   }
 
   invoice(userId: string | undefined, orderId: string) {

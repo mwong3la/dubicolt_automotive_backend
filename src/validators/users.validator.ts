@@ -17,7 +17,6 @@ export function validateCreateUser(body: Record<string, unknown>) {
   const name = String(body.name ?? '').trim();
   const email = String(body.email ?? '').trim();
   const password = String(body.password ?? '');
-  const company = String(body.company ?? '').trim();
   const role = String(body.role ?? 'buyer').trim() as UserRole;
   const details: Record<string, string[]> = {};
 
@@ -30,7 +29,7 @@ export function validateCreateUser(body: Record<string, unknown>) {
     throw new AppError(400, 'validation_error', 'Validation failed', details);
   }
 
-  return { name, email, password, company, role };
+  return { name, email, password, role };
 }
 
 export function validateUpdateUser(body: Record<string, unknown>) {
@@ -38,7 +37,6 @@ export function validateUpdateUser(body: Record<string, unknown>) {
   const data: {
     name?: string;
     email?: string;
-    company?: string;
     role?: UserRole;
     is_active?: boolean;
     password?: string;
@@ -54,7 +52,6 @@ export function validateUpdateUser(body: Record<string, unknown>) {
     if (!email) details.email = ['Email is required'];
     else data.email = email;
   }
-  if (body.company !== undefined) data.company = String(body.company).trim();
   if (body.role !== undefined) {
     const role = String(body.role).trim() as UserRole;
     if (!ROLES.includes(role)) details.role = ['Role must be buyer, admin, or vendor'];
@@ -78,14 +75,13 @@ export function validateUpdateUser(body: Record<string, unknown>) {
 
 export function validateUpdateProfile(body: Record<string, unknown>) {
   const details: Record<string, string[]> = {};
-  const data: { name?: string; company?: string } = {};
+  const data: { name?: string } = {};
 
   if (body.name !== undefined) {
     const name = String(body.name).trim();
     if (!name || name.length < 2) details.name = ['Full name must be at least 2 characters'];
     else data.name = name;
   }
-  if (body.company !== undefined) data.company = String(body.company).trim();
 
   if (Object.keys(details).length) {
     throw new AppError(400, 'validation_error', 'Validation failed', details);

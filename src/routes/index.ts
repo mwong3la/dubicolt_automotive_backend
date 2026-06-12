@@ -14,6 +14,8 @@ import reportsRoutes from './reports.routes';
 import uploadRoutes from './upload.routes';
 import categoriesRoutes from './categories.routes';
 import usersRoutes from './users.routes';
+import promotionsRoutes from './promotions.routes';
+import returnsRoutes from './returns.routes';
 
 const apiRouter = Router();
 
@@ -32,5 +34,7 @@ apiRouter.use('/reports', reportsRoutes);
 apiRouter.use('/uploads', uploadRoutes);
 apiRouter.use('/categories', categoriesRoutes);
 apiRouter.use('/users', usersRoutes);
+apiRouter.use('/promotions', promotionsRoutes);
+apiRouter.use('/returns', returnsRoutes);
 
 export default apiRouter;

@@ -1,7 +1,11 @@
 import { dubicoltStore } from '../dubicolt/store';
 
 export class VehiclesService {
-  create(userId: string, data: { make: string; model: string; year: number; engine?: string; vin?: string }) {
+  catalog() {
+    return dubicoltStore.getVehicleCatalog();
+  }
+
+  create(userId: string, data: { make: string; model: string; year: number; engine?: string }) {
     return dubicoltStore.createVehicle(userId, data);
   }
 
@@ -9,7 +13,7 @@ export class VehiclesService {
     return dubicoltStore.listVehicles(userId);
   }
 
-  update(userId: string, id: string, data: Partial<{ make: string; model: string; year: number; engine?: string; vin?: string }>) {
+  update(userId: string, id: string, data: Partial<{ make: string; model: string; year: number; engine?: string }>) {
     return dubicoltStore.updateVehicle(userId, id, data);
   }
 

@@ -4,10 +4,14 @@ import { vehiclesService } from '../services/vehicles.service';
 import { AppError } from '../errors/AppError';
 import type { AuthRequest } from '../middlewares/auth.middleware';
 
+export const catalog = asyncHandler(async (_req: AuthRequest, res: Response) => {
+  res.json(await vehiclesService.catalog());
+});
+
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { make, model, year, engine, vin } = req.body ?? {};
+  const { make, model, year, engine } = req.body ?? {};
   if (!make || !model || !year) throw new AppError(400, 'validation_error', 'make, model, and year are required');
-  res.status(201).json(await vehiclesService.create(req.user!.id, { make, model, year: Number(year), engine, vin }));
+  res.status(201).json(await vehiclesService.create(req.user!.id, { make, model, year: Number(year), engine }));
 });
 
 export const list = asyncHandler(async (req: AuthRequest, res: Response) => {

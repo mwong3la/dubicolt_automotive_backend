@@ -71,6 +71,16 @@ __decorate([
     __metadata("design:type", String)
 ], Order.prototype, "quotation_id", void 0);
 __decorate([
+    (0, sequelize_typescript_1.AllowNull)(true),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.STRING),
+    __metadata("design:type", String)
+], Order.prototype, "promotion_code", void 0);
+__decorate([
+    (0, sequelize_typescript_1.Default)(0),
+    (0, sequelize_typescript_1.Column)(sequelize_typescript_1.DataType.INTEGER),
+    __metadata("design:type", Number)
+], Order.prototype, "discount_amount", void 0);
+__decorate([
     (0, sequelize_typescript_1.HasMany)(() => OrderItem_1.OrderItem),
     __metadata("design:type", Array)
 ], Order.prototype, "items", void 0);

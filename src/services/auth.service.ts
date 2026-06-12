@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import { AppError } from '../errors/AppError';
 import { dubicoltStore } from '../dubicolt/store';
 import { signTokens } from '../middlewares/auth.middleware';
+import { notifyWelcome } from '../notifications/email.notifications';
 import type { DubicoltUser } from '../dubicolt/types';
 
 export class AuthService {
@@ -18,7 +19,6 @@ export class AuthService {
       email: row.email,
       passwordHash: row.password,
       name: row.name,
-      company: row.company,
       role: row.role as DubicoltUser['role'],
     };
     return { ...signTokens(user), user: dubicoltStore.toPublicUser(user) };
@@ -33,6 +33,7 @@ export class AuthService {
       password: data.password,
       name: data.name,
     });
+    void notifyWelcome(user.id);
     return { ...signTokens(user), user: dubicoltStore.toPublicUser(user) };
   }
 
@@ -40,7 +41,7 @@ export class AuthService {
     return dubicoltStore.toPublicUser(user);
   }
 
-  async updateProfile(userId: string, data: { name?: string; company?: string }) {
+  async updateProfile(userId: string, data: { name?: string }) {
     const profile = await dubicoltStore.updateUserProfile(userId, data);
     if (!profile) throw new AppError(404, 'not_found', 'User not found');
     return profile;

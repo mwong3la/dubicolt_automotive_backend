@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import * as controller from '../controllers/deliveries.controller';
+import * as controller from '../controllers/promotions.controller';
 import { requireAuth, requireAdmin } from '../middlewares/auth.middleware';
 
 const router = Router();
 
+router.post('/validate', requireAuth, controller.validate);
 router.get('/', requireAuth, requireAdmin, controller.list);
-router.get('/:id', requireAuth, controller.get);
 router.post('/', requireAuth, requireAdmin, controller.create);
-router.post('/:id/status', requireAuth, requireAdmin, controller.updateStatus);
+router.put('/:id', requireAuth, requireAdmin, controller.update);
 
 export default router;

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { productsService } from '../services/products.service';
 import { AppError } from '../errors/AppError';
+import type { AuthRequest } from '../middlewares/auth.middleware';
 
 export const create = asyncHandler(async (req: Request, res: Response) => {
   const body = req.body ?? {};
@@ -27,14 +28,17 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
   res.json(product);
 });
 
-export const search = asyncHandler(async (req: Request, res: Response) => {
-  const { keyword, make, model, year, category, brand } = req.query;
+export const search = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { keyword, make, model, year, engine, vehicleId, category, brand } = req.query;
   res.json(
     await productsService.search({
       keyword: keyword as string | undefined,
       make: make as string | undefined,
       model: model as string | undefined,
       year: year ? Number(year) : undefined,
+      engine: engine as string | undefined,
+      vehicleId: vehicleId as string | undefined,
+      userId: req.user?.id,
       category: category as string | undefined,
       brand: brand as string | undefined,
     }),

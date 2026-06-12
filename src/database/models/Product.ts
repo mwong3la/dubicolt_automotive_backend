@@ -35,6 +35,7 @@ export class Product extends Model {
     model: string;
     yearFrom: number;
     yearTo: number;
+    engine?: string;
   }[];
 
   @AllowNull(false)

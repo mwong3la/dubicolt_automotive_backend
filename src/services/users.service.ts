@@ -10,7 +10,6 @@ export class UsersService {
     name: string;
     email: string;
     password: string;
-    company?: string;
     role?: UserRole;
   }) {
     return dubicoltStore.createUserAdmin(data);
@@ -21,7 +20,6 @@ export class UsersService {
     data: Partial<{
       name: string;
       email: string;
-      company: string;
       role: UserRole;
       is_active: boolean;
       password: string;

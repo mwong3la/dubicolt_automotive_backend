@@ -13,6 +13,8 @@ import { Quotation } from './models/Quotation';
 import { Supplier } from './models/Supplier';
 import { Delivery } from './models/Delivery';
 import { Category } from './models/Category';
+import { Promotion } from './models/Promotion';
+import { ReturnRequest } from './models/ReturnRequest';
 import { seedDatabaseIfEmpty } from './seed-runner';
 
 const env = process.env.NODE_ENV || 'development';
@@ -46,6 +48,8 @@ const sequelizeOptions: SequelizeOptions = {
     Supplier,
     Delivery,
     Category,
+    Promotion,
+    ReturnRequest,
   ],
   logging: process.env.DB_LOGGING === 'true' ? console.log : false,
 };

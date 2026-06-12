@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.signTokens = signTokens;
+exports.optionalAuth = optionalAuth;
 exports.requireAuth = requireAuth;
 exports.requireAdmin = requireAdmin;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
@@ -17,6 +18,24 @@ function signTokens(user) {
     const access_token = jsonwebtoken_1.default.sign({ userId: user.id, role: user.role, email: user.email }, JWT_SECRET, accessOpts);
     const refresh_token = jsonwebtoken_1.default.sign({ userId: user.id, type: 'refresh' }, JWT_SECRET, refreshOpts);
     return { access_token, refresh_token, expires_in: 3600 };
+}
+async function optionalAuth(req, _res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+        next();
+        return;
+    }
+    try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
+        const user = await store_1.dubicoltStore.getUser(decoded.userId);
+        if (user)
+            req.user = user;
+    }
+    catch {
+        // Ignore invalid tokens for optional auth routes.
+    }
+    next();
 }
 async function requireAuth(req, res, next) {
     const authHeader = req.headers.authorization;

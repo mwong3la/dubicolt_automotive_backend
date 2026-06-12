@@ -69,6 +69,14 @@ export class Order extends Model {
   @Column(DataType.UUID)
   quotation_id?: string;
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  promotion_code?: string;
+
+  @Default(0)
+  @Column(DataType.INTEGER)
+  discount_amount!: number;
+
   @HasMany(() => OrderItem)
   items?: OrderItem[];
 
